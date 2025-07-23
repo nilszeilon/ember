@@ -41,6 +41,13 @@ const hooks = {
             metaKey: e.metaKey
           })
         }
+        // ESC to close modals and focus search
+        else if (e.key === 'Escape') {
+          // Don't prevent default to allow normal ESC behavior
+          this.pushEvent("keyboard_shortcut", {
+            key: e.key
+          })
+        }
       }
       
       window.addEventListener("keydown", this.handleKeyDown)
