@@ -7,6 +7,9 @@ defmodule Emberchat.Application do
 
   @impl true
   def start(_type, _args) do
+    # Load sqlite-vec extension
+    Application.put_env(:exqlite, :load_extensions, [SqliteVec.path()])
+    
     children = [
       EmberchatWeb.Telemetry,
       Emberchat.Repo,

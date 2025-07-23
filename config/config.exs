@@ -24,6 +24,7 @@ config :emberchat,
   ecto_repos: [Emberchat.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+
 # Configures the endpoint
 config :emberchat, EmberchatWeb.Endpoint,
   url: [host: "localhost"],
