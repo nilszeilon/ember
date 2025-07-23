@@ -1,18 +1,24 @@
-# Emberchat
+# Ember 🔥
 
-To start your Phoenix server:
+**A modern, web-based team communication platform built with Phoenix LiveView**
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+Ember is an open-source alternative mainstream chat apps like slack or discord. 
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+Ember is distributed under the MIT license.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Features
+- [x] chat interface, rooms, threads and instant messages
+- [x] search, search for messages across rooms
 
-## Learn more
+## TODO things
+- [ ] emoji's & reactions
+- [ ] design improvements
+- [ ] support multi media, images, video, gif's, audio
+- [ ] best search experience in the world
+- [ ] notifications, tag users or set up custom
+- [ ] channel memberships, personal channels and group channels
+- [ ] team note system
+- [ ] pin messages
 
-* Official website: https://www.phoenixframework.org/
-* Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
