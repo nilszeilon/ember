@@ -11,7 +11,9 @@ config :bcrypt_elixir, :log_rounds, 1
 config :emberchat, Emberchat.Repo,
   database: Path.expand("../emberchat_test.db", __DIR__),
   pool_size: 5,
-  pool: Ecto.Adapters.SQL.Sandbox
+  pool: Ecto.Adapters.SQL.Sandbox,
+  # Load sqlite-vec extension - using path without .so extension as expected by SqliteVec.path()
+  load_extensions: [Path.expand("../deps/sqlite_vec/priv/0.1.5/vec0", __DIR__)]
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

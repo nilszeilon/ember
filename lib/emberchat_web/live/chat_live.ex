@@ -39,13 +39,15 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:thread_messages, [])
      |> assign(:thread_draft, "")
      |> assign(:drafts, %{})
+     |> assign(:highlight_message_id, nil)
      |> assign(:page_title, "Chat"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
   @impl true
-  def handle_params(%{"room_id" => room_id}, _url, socket) do
+  def handle_params(%{"room_id" => room_id} = params, _url, socket) do
     room = Chat.get_room!(socket.assigns.current_scope, room_id)
     messages = Chat.list_room_messages(socket.assigns.current_scope, room.id)
+    highlight_message_id = params["highlight"]
 
     # Unsubscribe from previous room if any
     if connected?(socket) && socket.assigns.current_room do
@@ -60,13 +62,23 @@ defmodule EmberchatWeb.ChatLive do
       Phoenix.PubSub.subscribe(Emberchat.PubSub, "room:#{room.id}:messages")
     end
 
-    {:noreply,
-     socket
-     |> assign(:current_room, room)
-     |> assign(:messages, messages)
-     |> assign(:new_message, %Message{room_id: room.id})
-     |> assign(:replying_to, nil)
-     |> assign(:page_title, room.name)}
+    socket = 
+      socket
+      |> assign(:current_room, room)
+      |> assign(:messages, messages)
+      |> assign(:new_message, %Message{room_id: room.id})
+      |> assign(:replying_to, nil)
+      |> assign(:highlight_message_id, highlight_message_id)
+      |> assign(:page_title, room.name)
+
+    # If we have a message to highlight, scroll to it after the page loads
+    socket = if highlight_message_id do
+      push_event(socket, "scroll_to_message", %{message_id: highlight_message_id})
+    else
+      socket
+    end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -426,10 +438,13 @@ defmodule EmberchatWeb.ChatLive do
               current_user_id={@current_scope.user.id} 
             />
             
-            <div class="flex-1 overflow-y-auto p-6" id="messages-container" phx-hook="ScrollToBottom">
+            <div class="flex-1 overflow-y-auto p-6" id="messages-container" phx-hook="MessageScroll">
               <div class="space-y-4">
                 <%= for message <- @messages do %>
-                  <.message_bubble message={message} />
+                  <.message_bubble 
+                    message={message} 
+                    highlighted={@highlight_message_id && to_string(message.id) == @highlight_message_id}
+                  />
                 <% end %>
               </div>
             </div>

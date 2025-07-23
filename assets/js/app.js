@@ -29,15 +29,42 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 
 const hooks = {
   ...colocatedHooks,
-  ScrollToBottom: {
+  MessageScroll: {
     mounted() {
-      this.scrollToBottom()
+      this.handleEvent("scroll_to_message", ({message_id}) => {
+        this.scrollToMessage(message_id)
+      })
+      // Still auto-scroll to bottom on mount if no highlight
+      if (!this.el.dataset.highlight) {
+        this.scrollToBottom()
+      }
     },
     updated() {
-      this.scrollToBottom()
+      // Auto-scroll to bottom unless we're highlighting a message
+      if (!this.el.dataset.highlight) {
+        this.scrollToBottom()
+      }
     },
     scrollToBottom() {
       this.el.scrollTop = this.el.scrollHeight
+    },
+    scrollToMessage(messageId) {
+      const targetElement = document.querySelector(`#message-${messageId}`)
+      
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        })
+        
+        // Add a brief pulse animation after scrolling
+        setTimeout(() => {
+          targetElement.classList.add('animate-pulse')
+          setTimeout(() => {
+            targetElement.classList.remove('animate-pulse')
+          }, 1000)
+        }, 500)
+      }
     }
   }
 }

@@ -19,6 +19,7 @@ defmodule Emberchat.Application do
       {Phoenix.PubSub, name: Emberchat.PubSub},
       # Start a worker by calling: Emberchat.Worker.start_link(arg)
       # {Emberchat.Worker, arg},
+      Emberchat.EmbeddingServer,
       # Start to serve requests, typically the last entry
       EmberchatWeb.Endpoint
     ]

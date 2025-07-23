@@ -55,8 +55,13 @@ defmodule EmberchatWeb.ChatComponents do
   end
 
   def message_bubble(assigns) do
+    assigns = assign_new(assigns, :highlighted, fn -> false end)
+    
     ~H"""
-    <div class="chat chat-start" id={"message-#{@message.id}"}>
+    <div class={[
+      "chat chat-start transition-all duration-500 rounded-lg",
+      @highlighted && "bg-yellow-100 border-2 border-yellow-400 p-2 -m-2"
+    ]} id={"message-#{@message.id}"}>
       <%= if @message.parent_message do %>
         <div class="mb-2 opacity-70">
           <div
@@ -242,6 +247,35 @@ defmodule EmberchatWeb.ChatComponents do
         </div>
       </div>
       
+    <!-- Navigation -->
+      <div class="px-2 py-2">
+        <.link
+          navigate={~p"/search"}
+          class={[
+            "block w-full p-2 rounded-lg transition-all duration-200 hover:bg-base-300 border border-transparent hover:border-primary/20",
+            @drawer_open && "flex items-center gap-3",
+            !@drawer_open && "flex justify-center"
+          ]}
+        >
+          <div class="flex-shrink-0">
+            <div class={[
+              "rounded-full bg-base-300 border border-base-content/10 hover:border-primary/50 transition-all duration-200 flex items-center justify-center",
+              @drawer_open && "w-8 h-8",
+              !@drawer_open && "w-10 h-10"
+            ]}>
+              <.icon name="hero-magnifying-glass" class={
+                if @drawer_open, do: "h-4 w-4", else: "h-5 w-5"
+              } />
+            </div>
+          </div>
+          <%= if @drawer_open do %>
+            <div class="flex-1 min-w-0">
+              <span class="block truncate font-medium text-xs">Search Messages</span>
+            </div>
+          <% end %>
+        </.link>
+      </div>
+
     <!-- Room List -->
       <div class="flex-1 overflow-y-auto px-2">
         <%= if @drawer_open do %>

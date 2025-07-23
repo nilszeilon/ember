@@ -57,6 +57,7 @@ defmodule EmberchatWeb.Router do
 
       live "/chat", ChatLive, :index
       live "/chat/:room_id", ChatLive, :show
+      live "/search", SearchLive, :index
 
       # live "/rooms/:room_id/messages", MessageLive.Index, :index
       # live "/rooms/:room_id/messages/new", MessageLive.Form, :new
