@@ -721,35 +721,36 @@ defmodule EmberchatWeb.ChatLive do
       />
       
     <!-- Main content area -->
-      <div class="flex-1 flex flex-col">
-        
-    <!-- Chat content -->
-        <div class="flex-1 flex flex-col" phx-click="hide_thread">
-          <%= if @current_room do %>
-            <.chat_header room={@current_room} current_user_id={@current_scope.user.id} />
-
-            <div class="flex-1 overflow-y-auto p-6" id="messages-container" phx-hook="MessageScroll">
-              <div class="space-y-4">
-                <%= for message <- @messages do %>
-                  <.message_bubble
-                    message={message}
-                    highlighted={
-                      @highlight_message_id && to_string(message.id) == @highlight_message_id
-                    }
-                  />
-                <% end %>
-              </div>
+      <div class="flex-1 flex flex-col h-full">
+        <%= if @current_room do %>
+          <!-- Chat header -->
+          <.chat_header room={@current_room} current_user_id={@current_scope.user.id} />
+          
+          <!-- Messages container - takes remaining height -->
+          <div class="flex-1 overflow-y-auto p-6 min-h-0" id="messages-container" phx-hook="MessageScroll" phx-click="hide_thread">
+            <div class="space-y-4">
+              <%= for message <- @messages do %>
+                <.message_bubble
+                  message={message}
+                  highlighted={
+                    @highlight_message_id && to_string(message.id) == @highlight_message_id
+                  }
+                />
+              <% end %>
             </div>
-
+          </div>
+          
+          <!-- Fixed input bar at bottom -->
+          <div class="flex-shrink-0">
             <.message_input
               replying_to={@replying_to}
               room_id={@current_room.id}
               draft={Map.get(@drafts, @current_room.id, "")}
             />
-          <% else %>
-            <.empty_chat_state />
-          <% end %>
-        </div>
+          </div>
+        <% else %>
+          <.empty_chat_state />
+        <% end %>
       </div>
       
     <!-- Room Form Modal -->
