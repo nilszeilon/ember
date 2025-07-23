@@ -101,6 +101,24 @@ defmodule EmberchatWeb.ChatComponents do
           <.icon name="hero-arrow-uturn-left" class="h-3 w-3" />
         </button>
       </div>
+      
+      <%= if @message.reply_count > 0 do %>
+        <div class="mt-2">
+          <button
+            phx-click="show_thread"
+            phx-value-message_id={@message.id}
+            class="btn btn-xs btn-ghost gap-1 text-primary hover:bg-primary/10"
+          >
+            <.icon name="hero-chat-bubble-left-ellipsis" class="h-3 w-3" />
+            <span>{@message.reply_count} {if @message.reply_count == 1, do: "reply", else: "replies"}</span>
+            <%= if @message.last_reply_at do %>
+              <span class="text-xs opacity-70">
+                · {Calendar.strftime(@message.last_reply_at, "%I:%M %p")}
+              </span>
+            <% end %>
+          </button>
+        </div>
+      <% end %>
     </div>
     """
   end
@@ -407,6 +425,101 @@ defmodule EmberchatWeb.ChatComponents do
           <button class="btn btn-primary" phx-click="show_new_room_modal">
             Create Your First Room
           </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+  
+  def thread_view(assigns) do
+    ~H"""
+    <div class={[
+      "fixed inset-y-0 right-0 w-96 bg-base-100 shadow-2xl transform transition-transform duration-300 z-50",
+      @show && "translate-x-0",
+      !@show && "translate-x-full"
+    ]} phx-click-away="hide_thread">
+      <div class="flex flex-col h-full" phx-click="noop">
+        <!-- Thread Header -->
+        <div class="navbar bg-base-200 shadow-sm px-4">
+          <div class="navbar-start flex-1">
+            <h3 class="text-lg font-bold">Thread</h3>
+          </div>
+          <div class="navbar-end">
+            <button class="btn btn-sm btn-ghost btn-circle" phx-click="close_thread">
+              <.icon name="hero-x-mark" class="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        
+        <!-- Original Message -->
+        <%= if @parent_message do %>
+          <div class="p-4 bg-base-200 border-b">
+            <div class="chat chat-start">
+              <div class="chat-image avatar avatar-placeholder">
+                <div class="w-8 rounded-full bg-neutral text-primary-content placeholder">
+                  <span class="text-sm">
+                    {String.first(@parent_message.user.username || @parent_message.user.email) |> String.upcase()}
+                  </span>
+                </div>
+              </div>
+              <div class="chat-header">
+                <span class="font-medium text-sm">{@parent_message.user.username}</span>
+                <time class="text-xs opacity-50">
+                  {Calendar.strftime(@parent_message.inserted_at, "%I:%M %p")}
+                </time>
+              </div>
+              <div class="chat-bubble chat-bubble-neutral">
+                <span class="break-words text-sm">{@parent_message.content}</span>
+              </div>
+            </div>
+          </div>
+        <% end %>
+        
+        <!-- Thread Messages -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="thread-messages">
+          <%= for message <- @thread_messages do %>
+            <div class="chat chat-start">
+              <div class="chat-image avatar avatar-placeholder">
+                <div class="w-8 rounded-full bg-neutral text-primary-content placeholder">
+                  <span class="text-sm">
+                    {String.first(message.user.username || message.user.email) |> String.upcase()}
+                  </span>
+                </div>
+              </div>
+              <div class="chat-header">
+                <span class="font-medium text-sm">{message.user.username}</span>
+                <time class="text-xs opacity-50">
+                  {Calendar.strftime(message.inserted_at, "%I:%M %p")}
+                </time>
+              </div>
+              <div class="chat-bubble chat-bubble-primary">
+                <span class="break-words text-sm">{message.content}</span>
+              </div>
+            </div>
+          <% end %>
+        </div>
+        
+        <!-- Thread Input -->
+        <div class="p-4 bg-base-200">
+          <.form for={%{}} phx-submit="send_thread_message" phx-change="update_thread_draft" class="join w-full">
+            <div class="form-control flex-1">
+              <input
+                type="text"
+                name="message[content]"
+                value={@draft || ""}
+                phx-change="update_thread_draft"
+                phx-value-target="thread_draft"
+                placeholder="Reply in thread..."
+                class="input input-bordered join-item w-full focus:input-primary input-sm"
+                required
+              />
+            </div>
+            <input type="hidden" name="message[room_id]" value={@room_id} />
+            <input type="hidden" name="message[parent_message_id]" value={@parent_message_id} />
+            <button type="submit" class="btn btn-primary join-item btn-sm">
+              <.icon name="hero-paper-airplane" class="h-4 w-4" />
+            </button>
+          </.form>
         </div>
       </div>
     </div>

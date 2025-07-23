@@ -203,9 +203,27 @@ defmodule Emberchat.Chat do
     Repo.all_by(Message, user_id: scope.user.id)
   end
 
-  def list_room_messages(_scope, room_id) do
-    from(m in Message, 
-      where: m.room_id == ^room_id, 
+  def list_room_messages(_scope, room_id, opts \\ []) do
+    include_replies = Keyword.get(opts, :include_replies, false)
+    
+    query = from(m in Message, 
+      where: m.room_id == ^room_id,
+      preload: [:user, parent_message: :user],
+      order_by: [asc: m.inserted_at]
+    )
+    
+    query = if include_replies do
+      query
+    else
+      from(m in query, where: is_nil(m.parent_message_id))
+    end
+    
+    Repo.all(query)
+  end
+  
+  def list_thread_messages(_scope, parent_message_id) do
+    from(m in Message,
+      where: m.parent_message_id == ^parent_message_id,
       preload: [:user, parent_message: :user],
       order_by: [asc: m.inserted_at]
     )
@@ -243,14 +261,34 @@ defmodule Emberchat.Chat do
 
   """
   def create_message(%Scope{} = scope, attrs) do
-    with {:ok, message = %Message{}} <-
-           %Message{}
-           |> Message.changeset(attrs, scope)
-           |> Repo.insert() do
-      message = Repo.preload(message, [:user, parent_message: :user])
-      broadcast_message(scope, {:created, message})
-      {:ok, message}
-    end
+    Repo.transaction(fn ->
+      with {:ok, message = %Message{}} <-
+             %Message{}
+             |> Message.changeset(attrs, scope)
+             |> Repo.insert() do
+        # Update parent message thread metadata if this is a reply
+        if message.parent_message_id do
+          update_thread_metadata(message.parent_message_id)
+        end
+        
+        message = Repo.preload(message, [:user, parent_message: :user])
+        broadcast_message(scope, {:created, message})
+        message
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+  
+  defp update_thread_metadata(parent_message_id) do
+    from(m in Message,
+      where: m.id == ^parent_message_id,
+      update: [
+        inc: [reply_count: 1],
+        set: [last_reply_at: ^DateTime.utc_now()]
+      ]
+    )
+    |> Repo.update_all([])
   end
 
   @doc """
@@ -292,11 +330,27 @@ defmodule Emberchat.Chat do
   def delete_message(%Scope{} = scope, %Message{} = message) do
     true = message.user_id == scope.user.id
 
-    with {:ok, message = %Message{}} <-
-           Repo.delete(message) do
-      broadcast_message(scope, {:deleted, message})
-      {:ok, message}
-    end
+    Repo.transaction(fn ->
+      with {:ok, message = %Message{}} <- Repo.delete(message) do
+        # Update parent message thread metadata if this was a reply
+        if message.parent_message_id do
+          decrement_thread_metadata(message.parent_message_id)
+        end
+        
+        broadcast_message(scope, {:deleted, message})
+        message
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+  
+  defp decrement_thread_metadata(parent_message_id) do
+    from(m in Message,
+      where: m.id == ^parent_message_id,
+      update: [inc: [reply_count: -1]]
+    )
+    |> Repo.update_all([])
   end
 
   @doc """

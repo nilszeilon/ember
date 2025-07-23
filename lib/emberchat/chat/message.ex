@@ -6,6 +6,8 @@ defmodule Emberchat.Chat.Message do
   schema "messages" do
     field :content, :string
     field :room_id, :id
+    field :reply_count, :integer, default: 0
+    field :last_reply_at, :utc_datetime
     
     belongs_to :user, Emberchat.Accounts.User
     belongs_to :parent_message, __MODULE__

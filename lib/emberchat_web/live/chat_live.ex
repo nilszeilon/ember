@@ -34,6 +34,10 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:emoji_options, [
        "💬", "🔥", "✨", "🎉", "🚀", "💡", "🎯", "🏆", "🌟", "💼", "🎨", "🎮", "🎵", "📚", "🍕", "☕"
      ])
+     |> assign(:show_thread, false)
+     |> assign(:thread_parent_message, nil)
+     |> assign(:thread_messages, [])
+     |> assign(:thread_draft, "")
      |> assign(:page_title, "Chat"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
@@ -177,6 +181,58 @@ defmodule EmberchatWeb.ChatLive do
         {:noreply, assign(socket, :new_message, changeset)}
     end
   end
+  
+  @impl true
+  def handle_event("show_thread", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    parent_message = Enum.find(socket.assigns.messages, &(&1.id == message_id))
+    thread_messages = Chat.list_thread_messages(socket.assigns.current_scope, message_id)
+    
+    {:noreply,
+     socket
+     |> assign(:show_thread, true)
+     |> assign(:thread_parent_message, parent_message)
+     |> assign(:thread_messages, thread_messages)}
+  end
+  
+  @impl true
+  def handle_event("close_thread", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_thread, false)
+     |> assign(:thread_parent_message, nil)
+     |> assign(:thread_messages, [])
+     |> assign(:thread_draft, "")}
+  end
+  
+  @impl true
+  def handle_event("update_thread_draft", %{"message" => %{"content" => draft}}, socket) do
+    {:noreply, assign(socket, :thread_draft, draft)}
+  end
+  
+  @impl true
+  def handle_event("hide_thread", _params, socket) do
+    # Hide thread but keep draft
+    {:noreply, assign(socket, :show_thread, false)}
+  end
+  
+  @impl true
+  def handle_event("noop", _params, socket) do
+    # Do nothing - used to stop click propagation
+    {:noreply, socket}
+  end
+  
+  @impl true
+  def handle_event("send_thread_message", %{"message" => message_params}, socket) do
+    case Chat.create_message(socket.assigns.current_scope, message_params) do
+      {:ok, _message} ->
+        # Clear draft after successful send
+        {:noreply, assign(socket, :thread_draft, "")}
+         
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to send message")}
+    end
+  end
 
   @impl true
   def handle_info({:created, %Room{} = room}, socket) do
@@ -230,7 +286,31 @@ defmodule EmberchatWeb.ChatLive do
   @impl true
   def handle_info({:created, %Message{} = message}, socket) do
     if socket.assigns.current_room && message.room_id == socket.assigns.current_room.id do
-      {:noreply, update(socket, :messages, &(&1 ++ [message]))}
+      # If it's a reply, update the parent message's reply count and don't show in main chat
+      if message.parent_message_id do
+        # Update parent message reply count
+        messages = Enum.map(socket.assigns.messages, fn m ->
+          if m.id == message.parent_message_id do
+            m
+            |> Map.put(:reply_count, (m.reply_count || 0) + 1)
+            |> Map.put(:last_reply_at, message.inserted_at)
+          else
+            m
+          end
+        end)
+        
+        # If thread is open for this parent message, add to thread messages
+        socket = if socket.assigns.thread_parent_message && socket.assigns.thread_parent_message.id == message.parent_message_id do
+          update(socket, :thread_messages, &(&1 ++ [message]))
+        else
+          socket
+        end
+        
+        {:noreply, assign(socket, :messages, messages)}
+      else
+        # It's a top-level message, add to main chat
+        {:noreply, update(socket, :messages, &(&1 ++ [message]))}
+      end
     else
       {:noreply, socket}
     end
@@ -262,7 +342,7 @@ defmodule EmberchatWeb.ChatLive do
 
   defp save_room(socket, :edit, room_params) do
     case Chat.update_room(socket.assigns.current_scope, socket.assigns.editing_room, room_params) do
-      {:ok, room} ->
+      {:ok, _room} ->
         {:noreply,
          socket
          |> put_flash(:info, "Room updated successfully")
@@ -312,7 +392,7 @@ defmodule EmberchatWeb.ChatLive do
       <div class="flex-1 flex flex-col">
         
         <!-- Chat content -->
-        <div class="flex-1 flex flex-col">
+        <div class="flex-1 flex flex-col" phx-click="hide_thread">
           <%= if @current_room do %>
             <.chat_header 
               room={@current_room} 
@@ -347,6 +427,16 @@ defmodule EmberchatWeb.ChatLive do
           emoji_options={@emoji_options}
         />
       <% end %>
+      
+      <!-- Thread View -->
+      <.thread_view
+        show={@show_thread}
+        parent_message={@thread_parent_message}
+        thread_messages={@thread_messages}
+        room_id={@current_room && @current_room.id}
+        parent_message_id={@thread_parent_message && @thread_parent_message.id}
+        draft={@thread_draft}
+      />
     </div>
     """
   end
