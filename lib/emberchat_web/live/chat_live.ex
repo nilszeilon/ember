@@ -38,6 +38,7 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:thread_parent_message, nil)
      |> assign(:thread_messages, [])
      |> assign(:thread_draft, "")
+     |> assign(:drafts, %{})
      |> assign(:page_title, "Chat"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
@@ -160,6 +161,13 @@ defmodule EmberchatWeb.ChatLive do
   end
 
   @impl true
+  def handle_event("update_draft", %{"message" => %{"content" => draft}}, socket) do
+    room_id = socket.assigns.current_room.id
+    drafts = Map.put(socket.assigns.drafts, room_id, draft)
+    {:noreply, assign(socket, :drafts, drafts)}
+  end
+
+  @impl true
   def handle_event("send_message", %{"message" => message_params}, socket) do
     # Add parent_message_id if replying
     message_params =
@@ -171,10 +179,15 @@ defmodule EmberchatWeb.ChatLive do
 
     case Chat.create_message(socket.assigns.current_scope, message_params) do
       {:ok, _message} ->
+        # Clear draft for this room after successful send
+        room_id = socket.assigns.current_room.id
+        drafts = Map.delete(socket.assigns.drafts, room_id)
+        
         {:noreply,
          socket
          |> assign(:new_message, %Message{room_id: socket.assigns.current_room.id})
          |> assign(:replying_to, nil)
+         |> assign(:drafts, drafts)
          |> put_flash(:info, "Message sent successfully")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -188,11 +201,16 @@ defmodule EmberchatWeb.ChatLive do
     parent_message = Enum.find(socket.assigns.messages, &(&1.id == message_id))
     thread_messages = Chat.list_thread_messages(socket.assigns.current_scope, message_id)
     
+    # Get thread draft if exists
+    thread_key = "thread_#{message_id}"
+    thread_draft = Map.get(socket.assigns.drafts, thread_key, "")
+    
     {:noreply,
      socket
      |> assign(:show_thread, true)
      |> assign(:thread_parent_message, parent_message)
-     |> assign(:thread_messages, thread_messages)}
+     |> assign(:thread_messages, thread_messages)
+     |> assign(:thread_draft, thread_draft)}
   end
   
   @impl true
@@ -207,7 +225,14 @@ defmodule EmberchatWeb.ChatLive do
   
   @impl true
   def handle_event("update_thread_draft", %{"message" => %{"content" => draft}}, socket) do
-    {:noreply, assign(socket, :thread_draft, draft)}
+    if socket.assigns.thread_parent_message do
+      # Store thread draft with parent message ID as key
+      thread_key = "thread_#{socket.assigns.thread_parent_message.id}"
+      drafts = Map.put(socket.assigns.drafts, thread_key, draft)
+      {:noreply, assign(socket, :drafts, drafts)}
+    else
+      {:noreply, socket}
+    end
   end
   
   @impl true
@@ -226,8 +251,10 @@ defmodule EmberchatWeb.ChatLive do
   def handle_event("send_thread_message", %{"message" => message_params}, socket) do
     case Chat.create_message(socket.assigns.current_scope, message_params) do
       {:ok, _message} ->
-        # Clear draft after successful send
-        {:noreply, assign(socket, :thread_draft, "")}
+        # Clear thread draft after successful send
+        thread_key = "thread_#{socket.assigns.thread_parent_message.id}"
+        drafts = Map.delete(socket.assigns.drafts, thread_key)
+        {:noreply, socket |> assign(:drafts, drafts) |> assign(:thread_draft, "")}
          
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to send message")}
@@ -409,7 +436,8 @@ defmodule EmberchatWeb.ChatLive do
             
             <.message_input 
               replying_to={@replying_to} 
-              room_id={@current_room.id} 
+              room_id={@current_room.id}
+              draft={Map.get(@drafts, @current_room.id, "")}
             />
           <% else %>
             <.empty_chat_state />
@@ -435,7 +463,7 @@ defmodule EmberchatWeb.ChatLive do
         thread_messages={@thread_messages}
         room_id={@current_room && @current_room.id}
         parent_message_id={@thread_parent_message && @thread_parent_message.id}
-        draft={@thread_draft}
+        draft={if @thread_parent_message, do: Map.get(@drafts, "thread_#{@thread_parent_message.id}", ""), else: ""}
       />
     </div>
     """

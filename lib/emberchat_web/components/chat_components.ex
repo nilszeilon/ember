@@ -322,15 +322,18 @@ defmodule EmberchatWeb.ChatComponents do
   end
 
   def message_input(assigns) do
+    assigns = assign_new(assigns, :draft, fn -> "" end)
+    
     ~H"""
     <div class="p-4 bg-base-200">
       <.reply_preview replying_to={@replying_to} />
 
-      <.form for={%{}} phx-submit="send_message" class="join w-full">
+      <.form for={%{}} phx-submit="send_message" phx-change="update_draft" class="join w-full">
         <div class="form-control flex-1">
           <input
             type="text"
             name="message[content]"
+            value={@draft}
             placeholder={
               if @replying_to,
                 do: "Reply to #{@replying_to.user.username}...",
@@ -507,8 +510,6 @@ defmodule EmberchatWeb.ChatComponents do
                 type="text"
                 name="message[content]"
                 value={@draft || ""}
-                phx-change="update_thread_draft"
-                phx-value-target="thread_draft"
                 placeholder="Reply in thread..."
                 class="input input-bordered join-item w-full focus:input-primary input-sm"
                 required
