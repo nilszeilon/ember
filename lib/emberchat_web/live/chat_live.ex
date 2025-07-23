@@ -11,6 +11,7 @@ defmodule EmberchatWeb.ChatLive do
     if connected?(socket) do
       Chat.subscribe_rooms(socket.assigns.current_scope)
       Chat.subscribe_messages(socket.assigns.current_scope)
+      Chat.subscribe_search(socket.assigns.current_scope)
     end
 
     rooms = Chat.list_rooms(socket.assigns.current_scope)
@@ -40,6 +41,17 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:thread_draft, "")
      |> assign(:drafts, %{})
      |> assign(:highlight_message_id, nil)
+     |> assign(:show_search_modal, false)
+     |> assign(:search_query, "")
+     |> assign(:search_results, [])
+     |> assign(:searching, false)
+     |> assign(:search_error, nil)
+     |> assign(:selected_search_room, nil)
+     |> assign(:suggestions, [])
+     |> assign(:show_suggestions, false)
+     |> assign(:search_stats, nil)
+     |> assign(:similarity_weight, 0.7)
+     |> assign(:recency_weight, 0.3)
      |> assign(:page_title, "Chat"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
@@ -274,6 +286,201 @@ defmodule EmberchatWeb.ChatLive do
   end
 
   @impl true
+  def handle_event("show_search_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_search_modal, true)
+     |> assign(:search_query, "")
+     |> assign(:search_results, [])
+     |> assign(:searching, false)
+     |> assign(:search_error, nil)
+     |> assign(:show_suggestions, false)
+     |> assign(:search_stats, nil)}
+  end
+
+  @impl true
+  def handle_event("close_search_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_search_modal, false)
+     |> assign(:search_query, "")
+     |> assign(:search_results, [])
+     |> assign(:searching, false)
+     |> assign(:search_error, nil)
+     |> assign(:show_suggestions, false)
+     |> assign(:search_stats, nil)}
+  end
+
+  @impl true
+  def handle_event("search", %{"query" => query}, socket) when byte_size(query) < 2 do
+    {:noreply, 
+     socket
+     |> assign(:search_query, query)
+     |> assign(:search_results, [])
+     |> assign(:searching, false)
+     |> assign(:search_error, nil)
+     |> assign(:show_suggestions, false)}
+  end
+
+  @impl true
+  def handle_event("search", %{"query" => query}, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_query, query)
+     |> assign(:searching, true)
+     |> assign(:search_error, nil)
+     |> assign(:show_suggestions, false)
+     |> start_search()}
+  end
+
+  @impl true
+  def handle_event("search_with_filters", params, socket) do
+    query = params["query"] || socket.assigns.search_query
+    room_id = case params["room_id"] do
+      "" -> nil
+      room_id -> String.to_integer(room_id)
+    end
+    
+    similarity_weight = String.to_float(params["similarity_weight"] || "0.7")
+    recency_weight = String.to_float(params["recency_weight"] || "0.3")
+
+    {:noreply,
+     socket
+     |> assign(:search_query, query)
+     |> assign(:selected_search_room, room_id)
+     |> assign(:similarity_weight, similarity_weight)
+     |> assign(:recency_weight, recency_weight)
+     |> assign(:searching, true)
+     |> assign(:search_error, nil)
+     |> start_search()}
+  end
+
+  @impl true
+  def handle_event("get_search_suggestions", %{"key" => "Enter", "value" => query}, socket) when byte_size(query) >= 2 do
+    # When Enter is pressed, trigger search instead of suggestions
+    handle_event("search", %{"query" => query}, socket)
+  end
+
+  def handle_event("get_search_suggestions", %{"value" => partial_query}, socket) when byte_size(partial_query) >= 2 do
+    Task.start(fn ->
+      case Chat.get_search_suggestions(partial_query, socket.assigns.current_scope, 
+                                       room_id: socket.assigns.selected_search_room) do
+        {:ok, suggestions} ->
+          send(self(), {:search_suggestions_ready, suggestions})
+        {:error, _reason} ->
+          send(self(), {:search_suggestions_ready, []})
+      end
+    end)
+
+    {:noreply, assign(socket, :show_suggestions, true)}
+  end
+
+  @impl true
+  def handle_event("get_search_suggestions", _params, socket) do
+    {:noreply, assign(socket, :show_suggestions, false)}
+  end
+
+  @impl true
+  def handle_event("select_search_suggestion", %{"suggestion" => suggestion}, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_query, suggestion)
+     |> assign(:show_suggestions, false)
+     |> assign(:searching, true)
+     |> assign(:search_error, nil)
+     |> start_search()}
+  end
+
+  @impl true
+  def handle_event("clear_search", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_query, "")
+     |> assign(:search_results, [])
+     |> assign(:searching, false)
+     |> assign(:search_error, nil)
+     |> assign(:show_suggestions, false)
+     |> assign(:search_stats, nil)}
+  end
+
+  @impl true
+  def handle_event("keyboard_shortcut", %{"key" => "k", "ctrlKey" => true}, socket) do
+    # Ctrl+K opens search modal
+    handle_event("show_search_modal", %{}, socket)
+  end
+
+  @impl true
+  def handle_event("keyboard_shortcut", %{"key" => "k", "metaKey" => true}, socket) do
+    # Cmd+K opens search modal (for Mac)
+    handle_event("show_search_modal", %{}, socket)
+  end
+
+  @impl true
+  def handle_event("keyboard_shortcut", _params, socket) do
+    # Ignore other keyboard shortcuts
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("find_similar", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    
+    Task.start(fn ->
+      # Get the message first
+      case Emberchat.Repo.get(Message, message_id) do
+        nil -> 
+          send(self(), {:search_error, "Message not found"})
+        message ->
+          case Chat.find_similar_messages(message, limit: 10, room_id: socket.assigns.selected_search_room) do
+            {:ok, similar_messages} ->
+              send(self(), {:similar_search_results_ready, similar_messages, message})
+            {:error, reason} ->
+              send(self(), {:search_error, "Failed to find similar messages: #{inspect(reason)}"})
+          end
+      end
+    end)
+
+    {:noreply, assign(socket, :searching, true)}
+  end
+
+  @impl true
+  def handle_info({:search_results_ready, results, stats}, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_results, results)
+     |> assign(:search_stats, stats)
+     |> assign(:searching, false)}
+  end
+
+  @impl true
+  def handle_info({:similar_search_results_ready, results, original_message}, socket) do
+    stats = %{
+      total_results: length(results),
+      search_type: "similar_to",
+      original_message: original_message
+    }
+
+    {:noreply,
+     socket
+     |> assign(:search_results, results)
+     |> assign(:search_stats, stats)
+     |> assign(:searching, false)}
+  end
+
+  @impl true
+  def handle_info({:search_suggestions_ready, suggestions}, socket) do
+    {:noreply, assign(socket, :suggestions, suggestions)}
+  end
+
+  @impl true
+  def handle_info({:search_error, error}, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_error, error)
+     |> assign(:searching, false)}
+  end
+
+  @impl true
   def handle_info({:created, %Room{} = room}, socket) do
     # Check if room already exists to prevent duplicates
     room_exists = Enum.any?(socket.assigns.rooms, &(&1.id == room.id))
@@ -415,10 +622,49 @@ defmodule EmberchatWeb.ChatLive do
     end
   end
 
+  defp start_search(socket) do
+    query = socket.assigns.search_query
+    scope = socket.assigns.current_scope
+    room_id = socket.assigns.selected_search_room
+    similarity_weight = socket.assigns.similarity_weight
+    recency_weight = socket.assigns.recency_weight
+
+    parent = self()
+    Task.start(fn ->
+      start_time = System.monotonic_time(:millisecond)
+      
+      case Chat.search_messages(query, scope, 
+                               room_id: room_id, 
+                               limit: 20,
+                               similarity_weight: similarity_weight,
+                               recency_weight: recency_weight) do
+        {:ok, results} ->
+          end_time = System.monotonic_time(:millisecond)
+          search_time = end_time - start_time
+          
+          stats = %{
+            total_results: length(results),
+            search_time_ms: search_time,
+            search_type: "semantic",
+            query: query,
+            room_filter: room_id,
+            similarity_weight: similarity_weight,
+            recency_weight: recency_weight
+          }
+          
+          send(parent, {:search_results_ready, results, stats})
+        {:error, reason} ->
+          send(parent, {:search_error, "Search failed: #{inspect(reason)}"})
+      end
+    end)
+
+    socket
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen">
+    <div class="flex h-screen" phx-hook="KeyboardShortcuts" id="chat-container">
       <!-- Custom Sidebar -->
       <.chat_sidebar 
         current_user={@current_scope.user} 
@@ -470,6 +716,22 @@ defmodule EmberchatWeb.ChatLive do
           emoji_options={@emoji_options}
         />
       <% end %>
+      
+      <!-- Search Modal -->
+      <.search_modal
+        show={@show_search_modal}
+        query={@search_query}
+        search_results={@search_results}
+        searching={@searching}
+        search_error={@search_error}
+        suggestions={@suggestions}
+        show_suggestions={@show_suggestions}
+        search_stats={@search_stats}
+        rooms={@rooms}
+        selected_room={@selected_search_room}
+        similarity_weight={@similarity_weight}
+        recency_weight={@recency_weight}
+      />
       
       <!-- Thread View -->
       <.thread_view

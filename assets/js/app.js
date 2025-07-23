@@ -29,6 +29,27 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 
 const hooks = {
   ...colocatedHooks,
+  KeyboardShortcuts: {
+    mounted() {
+      this.handleKeyDown = (e) => {
+        // Ctrl+K or Cmd+K to open search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault()
+          this.pushEvent("keyboard_shortcut", {
+            key: e.key,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey
+          })
+        }
+      }
+      
+      window.addEventListener("keydown", this.handleKeyDown)
+    },
+    
+    destroyed() {
+      window.removeEventListener("keydown", this.handleKeyDown)
+    }
+  },
   MessageScroll: {
     mounted() {
       this.handleEvent("scroll_to_message", ({message_id}) => {
