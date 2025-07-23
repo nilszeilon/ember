@@ -5,9 +5,7 @@ config :emberchat, Emberchat.Repo,
   database: Path.expand("../emberchat_dev.db", __DIR__),
   pool_size: 5,
   stacktrace: true,
-  show_sensitive_data_on_connection_error: true,
-  # Load sqlite-vec extension - using path without .so extension as expected by SqliteVec.path()
-  load_extensions: [Path.expand("../deps/sqlite_vec/priv/0.1.5/vec0", __DIR__)]
+  show_sensitive_data_on_connection_error: true
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

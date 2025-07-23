@@ -28,20 +28,9 @@ if config_env() == :prod do
       For example: /etc/emberchat/emberchat.db
       """
 
-  # Get sqlite-vec path at runtime
-  sqlite_vec_path = try do
-    SqliteVec.path()
-  rescue
-    _ ->
-      # Fallback to hardcoded path if SqliteVec module is not available
-      Path.expand("../deps/sqlite_vec/priv/0.1.5/vec0.so", __DIR__)
-  end
-
   config :emberchat, Emberchat.Repo,
     database: database_path,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5"),
-    # Load sqlite-vec extension
-    load_extensions: [sqlite_vec_path]
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
