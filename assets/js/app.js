@@ -29,15 +29,102 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 
 const hooks = {
   ...colocatedHooks,
-  ScrollToBottom: {
+  SearchModal: {
     mounted() {
-      this.scrollToBottom()
+      // Focus the search input when modal becomes visible
+      this.observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            const isOpen = this.el.classList.contains('modal-open')
+            if (isOpen) {
+              // Use a small delay to ensure the modal is fully rendered
+              setTimeout(() => {
+                const searchInput = this.el.querySelector('input[name="query"]')
+                if (searchInput) {
+                  searchInput.focus()
+                }
+              }, 100)
+            }
+          }
+        })
+      })
+      
+      this.observer.observe(this.el, {
+        attributes: true,
+        attributeFilter: ['class']
+      })
+    },
+    
+    destroyed() {
+      if (this.observer) {
+        this.observer.disconnect()
+      }
+    }
+  },
+  KeyboardShortcuts: {
+    mounted() {
+      this.handleKeyDown = (e) => {
+        // Ctrl+K or Cmd+K to open search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault()
+          this.pushEvent("keyboard_shortcut", {
+            key: e.key,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey
+          })
+        }
+        // ESC to close modals and focus search
+        else if (e.key === 'Escape') {
+          // Don't prevent default to allow normal ESC behavior
+          this.pushEvent("keyboard_shortcut", {
+            key: e.key
+          })
+        }
+      }
+      
+      window.addEventListener("keydown", this.handleKeyDown)
+    },
+    
+    destroyed() {
+      window.removeEventListener("keydown", this.handleKeyDown)
+    }
+  },
+  MessageScroll: {
+    mounted() {
+      this.handleEvent("scroll_to_message", ({message_id}) => {
+        this.scrollToMessage(message_id)
+      })
+      // Still auto-scroll to bottom on mount if no highlight
+      if (!this.el.dataset.highlight) {
+        this.scrollToBottom()
+      }
     },
     updated() {
-      this.scrollToBottom()
+      // Auto-scroll to bottom unless we're highlighting a message
+      if (!this.el.dataset.highlight) {
+        this.scrollToBottom()
+      }
     },
     scrollToBottom() {
       this.el.scrollTop = this.el.scrollHeight
+    },
+    scrollToMessage(messageId) {
+      const targetElement = document.querySelector(`#message-${messageId}`)
+      
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        })
+        
+        // Add a brief pulse animation after scrolling
+        setTimeout(() => {
+          targetElement.classList.add('animate-pulse')
+          setTimeout(() => {
+            targetElement.classList.remove('animate-pulse')
+          }, 1000)
+        }, 500)
+      }
     }
   }
 }

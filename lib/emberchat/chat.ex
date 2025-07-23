@@ -171,7 +171,7 @@ defmodule Emberchat.Chat do
     Room.changeset(room, attrs, scope)
   end
 
-  alias Emberchat.Chat.Message
+  alias Emberchat.Chat.{Message, EmbeddingGenerator, SemanticSearch}
   alias Emberchat.Accounts.Scope
 
   @doc """
@@ -271,6 +271,9 @@ defmodule Emberchat.Chat do
           update_thread_metadata(message.parent_message_id)
         end
         
+        # Generate embedding asynchronously to avoid blocking message creation
+        Task.start(fn -> EmbeddingGenerator.generate_embedding_for_message(message) end)
+        
         message = Repo.preload(message, [:user, parent_message: :user])
         broadcast_message(scope, {:created, message})
         message
@@ -306,12 +309,17 @@ defmodule Emberchat.Chat do
   def update_message(%Scope{} = scope, %Message{} = message, attrs) do
     true = message.user_id == scope.user.id
 
-    with {:ok, message = %Message{}} <-
+    with {:ok, updated_message = %Message{}} <-
            message
            |> Message.changeset(attrs, scope)
            |> Repo.update() do
-      broadcast_message(scope, {:updated, message})
-      {:ok, message}
+      # Regenerate embedding if content changed
+      if Map.has_key?(attrs, "content") or Map.has_key?(attrs, :content) do
+        Task.start(fn -> EmbeddingGenerator.generate_embedding_for_message(updated_message) end)
+      end
+      
+      broadcast_message(scope, {:updated, updated_message})
+      {:ok, updated_message}
     end
   end
 
@@ -331,14 +339,17 @@ defmodule Emberchat.Chat do
     true = message.user_id == scope.user.id
 
     Repo.transaction(fn ->
-      with {:ok, message = %Message{}} <- Repo.delete(message) do
+      with {:ok, deleted_message = %Message{}} <- Repo.delete(message) do
         # Update parent message thread metadata if this was a reply
-        if message.parent_message_id do
-          decrement_thread_metadata(message.parent_message_id)
+        if deleted_message.parent_message_id do
+          decrement_thread_metadata(deleted_message.parent_message_id)
         end
         
-        broadcast_message(scope, {:deleted, message})
-        message
+        # Remove from vector table asynchronously
+        Task.start(fn -> EmbeddingGenerator.remove_from_vector_table(deleted_message.id) end)
+        
+        broadcast_message(scope, {:deleted, deleted_message})
+        deleted_message
       else
         {:error, changeset} -> Repo.rollback(changeset)
       end
@@ -369,5 +380,59 @@ defmodule Emberchat.Chat do
     end
 
     Message.changeset(message, attrs, scope)
+  end
+
+  # Semantic Search Functions
+
+  @doc """
+  Search messages using semantic similarity and recency scoring.
+  
+  ## Examples
+  
+      iex> search_messages("machine learning", scope)
+      {:ok, [%Message{}, ...]}
+      
+      iex> search_messages("invalid query", scope, room_id: 123, limit: 10)
+      {:error, reason}
+  """
+  def search_messages(query, %Scope{} = scope, opts \\ []) do
+    SemanticSearch.search_messages(query, scope, opts)
+  end
+
+  @doc """
+  Find messages similar to a given message.
+  """
+  def find_similar_messages(%Message{} = message, opts \\ []) do
+    SemanticSearch.find_similar_messages(message, opts)
+  end
+
+  @doc """
+  Get search suggestions based on partial query input.
+  """
+  def get_search_suggestions(partial_query, %Scope{} = scope, opts \\ []) do
+    SemanticSearch.get_search_suggestions(partial_query, scope, opts)
+  end
+
+  @doc """
+  Generate embeddings for messages that don't have them yet.
+  Useful for backfilling embeddings after the feature is added.
+  """
+  def backfill_embeddings(batch_size \\ 50) do
+    EmbeddingGenerator.backfill_missing_embeddings(batch_size)
+  end
+
+  @doc """
+  Count how many messages don't have embeddings yet.
+  """
+  def count_messages_without_embeddings do
+    EmbeddingGenerator.count_messages_without_embeddings()
+  end
+
+  @doc """
+  Subscribe to search-related events for a user scope.
+  """
+  def subscribe_search(%Scope{} = scope) do
+    key = scope.user.id
+    Phoenix.PubSub.subscribe(Emberchat.PubSub, "user:#{key}:search")
   end
 end

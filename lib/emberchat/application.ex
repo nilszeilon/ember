@@ -7,6 +7,9 @@ defmodule Emberchat.Application do
 
   @impl true
   def start(_type, _args) do
+    # Load sqlite-vec extension
+    Application.put_env(:exqlite, :load_extensions, [SqliteVec.path()])
+    
     children = [
       EmberchatWeb.Telemetry,
       Emberchat.Repo,
@@ -16,6 +19,7 @@ defmodule Emberchat.Application do
       {Phoenix.PubSub, name: Emberchat.PubSub},
       # Start a worker by calling: Emberchat.Worker.start_link(arg)
       # {Emberchat.Worker, arg},
+      Emberchat.EmbeddingServer,
       # Start to serve requests, typically the last entry
       EmberchatWeb.Endpoint
     ]
