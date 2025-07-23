@@ -29,6 +29,38 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 
 const hooks = {
   ...colocatedHooks,
+  SearchModal: {
+    mounted() {
+      // Focus the search input when modal becomes visible
+      this.observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            const isOpen = this.el.classList.contains('modal-open')
+            if (isOpen) {
+              // Use a small delay to ensure the modal is fully rendered
+              setTimeout(() => {
+                const searchInput = this.el.querySelector('input[name="query"]')
+                if (searchInput) {
+                  searchInput.focus()
+                }
+              }, 100)
+            }
+          }
+        })
+      })
+      
+      this.observer.observe(this.el, {
+        attributes: true,
+        attributeFilter: ['class']
+      })
+    },
+    
+    destroyed() {
+      if (this.observer) {
+        this.observer.disconnect()
+      }
+    }
+  },
   KeyboardShortcuts: {
     mounted() {
       this.handleKeyDown = (e) => {

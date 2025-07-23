@@ -473,7 +473,7 @@ defmodule EmberchatWeb.ChatComponents do
     <div class={[
       "modal",
       @show && "modal-open"
-    ]}>
+    ]} phx-hook="SearchModal" id="search-modal">
       <div class="modal-box max-w-4xl w-11/12 max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold text-xl">Search Messages</h3>
