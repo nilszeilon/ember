@@ -147,8 +147,8 @@ defmodule EmberchatWeb.ChatComponents do
 
   def chat_header(assigns) do
     ~H"""
-    <div class="navbar bg-base-200 shadow-sm px-6">
-      <div class="navbar-start flex-1">
+    <div class="h-16 bg-base-200 shadow-sm flex items-center px-4">
+      <div class="flex-1">
         <div>
           <h2 class="text-lg font-bold flex items-center gap-2">
             <div class="avatar avatar-placeholder">
@@ -168,7 +168,7 @@ defmodule EmberchatWeb.ChatComponents do
       </div>
 
       <%= if @current_user_id == @room.user_id do %>
-        <div class="navbar-end">
+        <div>
           <button
             phx-click="show_edit_room_modal"
             phx-value-room_id={@room.id}
@@ -192,25 +192,23 @@ defmodule EmberchatWeb.ChatComponents do
       !@drawer_open && "w-20"
     ]}>
       <!-- Sidebar Header -->
-      <div class="bg-base-300 shadow-sm p-2">
+      <div class="h-16 bg-base-300 shadow-sm flex items-center px-2">
         <%= if @drawer_open do %>
           <button
             phx-click="toggle_drawer"
-            class="w-full p-2 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center gap-3"
+            class="w-full px-2 py-2 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center gap-3"
           >
             <.icon name="hero-bars-3" class="h-5 w-5 flex-shrink-0" />
             <span class="text-xl font-bold flex-1 text-left">EmberChat</span>
             <.icon name="hero-chevron-left" class="h-4 w-4 flex-shrink-0" />
           </button>
         <% else %>
-          <div class="flex justify-center">
-            <button
-              phx-click="toggle_drawer"
-              class="w-12 h-12 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center justify-center"
-            >
-              <.icon name="hero-bars-3" class="h-5 w-5" />
-            </button>
-          </div>
+          <button
+            phx-click="toggle_drawer"
+            class="w-full h-12 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center justify-center"
+          >
+            <.icon name="hero-bars-3" class="h-5 w-5" />
+          </button>
         <% end %>
       </div>
       
