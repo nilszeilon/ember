@@ -67,6 +67,7 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:search_stats, nil)
      |> assign(:similarity_weight, 0.7)
      |> assign(:recency_weight, 0.3)
+     |> assign(:expanded_reactions, MapSet.new())
      |> assign(:page_title, "Chat"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
@@ -87,6 +88,11 @@ defmodule EmberchatWeb.ChatLive do
     # Subscribe to messages for this specific room
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Emberchat.PubSub, "room:#{room.id}:messages")
+      
+      # Subscribe to reactions for all messages in the room
+      Enum.each(messages, fn message ->
+        Chat.subscribe_reactions(message.id)
+      end)
     end
 
     socket =
@@ -458,6 +464,34 @@ defmodule EmberchatWeb.ChatLive do
   end
 
   @impl true
+  def handle_event("toggle_reaction", %{"message_id" => message_id, "emoji" => emoji}, socket) do
+    message_id = String.to_integer(message_id)
+    
+    case Chat.toggle_reaction(socket.assigns.current_scope, message_id, emoji) do
+      {:ok, :removed} ->
+        {:noreply, socket}
+      {:ok, _reaction} ->
+        {:noreply, socket}
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to add reaction")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_show_all_reactions", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    
+    expanded_reactions = 
+      if MapSet.member?(socket.assigns.expanded_reactions, message_id) do
+        MapSet.delete(socket.assigns.expanded_reactions, message_id)
+      else
+        MapSet.put(socket.assigns.expanded_reactions, message_id)
+      end
+    
+    {:noreply, assign(socket, :expanded_reactions, expanded_reactions)}
+  end
+
+  @impl true
   def handle_event("find_similar", %{"message_id" => message_id}, socket) do
     message_id = String.to_integer(message_id)
 
@@ -571,6 +605,36 @@ defmodule EmberchatWeb.ChatLive do
   end
 
   @impl true
+  def handle_info({:reaction_added, %{message_id: message_id}}, socket) do
+    # Update the message's reaction summary
+    messages = Enum.map(socket.assigns.messages, fn message ->
+      if message.id == message_id do
+        reactions = Chat.get_message_reactions(message_id)
+        Map.put(message, :reaction_summary, reactions)
+      else
+        message
+      end
+    end)
+    
+    {:noreply, assign(socket, :messages, messages)}
+  end
+
+  @impl true
+  def handle_info({:reaction_removed, %{message_id: message_id}}, socket) do
+    # Update the message's reaction summary
+    messages = Enum.map(socket.assigns.messages, fn message ->
+      if message.id == message_id do
+        reactions = Chat.get_message_reactions(message_id)
+        Map.put(message, :reaction_summary, reactions)
+      else
+        message
+      end
+    end)
+    
+    {:noreply, assign(socket, :messages, messages)}
+  end
+
+  @impl true
   def handle_info({:created, %Message{} = message}, socket) do
     if socket.assigns.current_room && message.room_id == socket.assigns.current_room.id do
       # If it's a reply, update the parent message's reply count and don't show in main chat
@@ -599,7 +663,15 @@ defmodule EmberchatWeb.ChatLive do
         {:noreply, assign(socket, :messages, messages)}
       else
         # It's a top-level message, add to main chat
-        {:noreply, update(socket, :messages, &(&1 ++ [message]))}
+        # Subscribe to reactions for the new message
+        if connected?(socket) do
+          Chat.subscribe_reactions(message.id)
+        end
+        
+        # Add the message with empty reaction summary
+        message_with_reactions = Map.put(message, :reaction_summary, [])
+        
+        {:noreply, update(socket, :messages, &(&1 ++ [message_with_reactions]))}
       end
     else
       {:noreply, socket}
@@ -735,6 +807,8 @@ defmodule EmberchatWeb.ChatLive do
                   highlighted={
                     @highlight_message_id && to_string(message.id) == @highlight_message_id
                   }
+                  current_user_id={@current_scope.user.id}
+                  show_all_reactions={MapSet.member?(@expanded_reactions, message.id)}
                 />
               <% end %>
             </div>

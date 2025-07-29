@@ -13,6 +13,7 @@ defmodule Emberchat.Chat.Message do
     belongs_to :user, Emberchat.Accounts.User
     belongs_to :parent_message, __MODULE__
     has_many :replies, __MODULE__, foreign_key: :parent_message_id
+    has_many :reactions, Emberchat.Chat.Reaction
 
     timestamps(type: :utc_datetime)
   end

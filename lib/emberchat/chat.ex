@@ -171,7 +171,7 @@ defmodule Emberchat.Chat do
     Room.changeset(room, attrs, scope)
   end
 
-  alias Emberchat.Chat.{Message, EmbeddingGenerator, SemanticSearch}
+  alias Emberchat.Chat.{Message, EmbeddingGenerator, SemanticSearch, Reaction}
   alias Emberchat.Accounts.Scope
 
   @doc """
@@ -208,7 +208,7 @@ defmodule Emberchat.Chat do
     
     query = from(m in Message, 
       where: m.room_id == ^room_id,
-      preload: [:user, parent_message: :user],
+      preload: [:user, :reactions, parent_message: :user],
       order_by: [asc: m.inserted_at]
     )
     
@@ -218,16 +218,28 @@ defmodule Emberchat.Chat do
       from(m in query, where: is_nil(m.parent_message_id))
     end
     
-    Repo.all(query)
+    messages = Repo.all(query)
+    
+    # Add reaction summaries to each message
+    Enum.map(messages, fn message ->
+      reactions = get_message_reactions(message.id)
+      Map.put(message, :reaction_summary, reactions)
+    end)
   end
   
   def list_thread_messages(_scope, parent_message_id) do
-    from(m in Message,
+    messages = from(m in Message,
       where: m.parent_message_id == ^parent_message_id,
-      preload: [:user, parent_message: :user],
+      preload: [:user, :reactions, parent_message: :user],
       order_by: [asc: m.inserted_at]
     )
     |> Repo.all()
+    
+    # Add reaction summaries to each message
+    Enum.map(messages, fn message ->
+      reactions = get_message_reactions(message.id)
+      Map.put(message, :reaction_summary, reactions)
+    end)
   end
 
   @doc """
@@ -434,5 +446,86 @@ defmodule Emberchat.Chat do
   def subscribe_search(%Scope{} = scope) do
     key = scope.user.id
     Phoenix.PubSub.subscribe(Emberchat.PubSub, "user:#{key}:search")
+  end
+
+  # Reaction functions
+
+  @doc """
+  Adds a reaction to a message. If the user has already reacted with the same emoji,
+  the reaction will be removed (toggle behavior).
+  """
+  def toggle_reaction(%Scope{} = scope, message_id, emoji) do
+    user_id = scope.user.id
+    
+    # Check if reaction already exists
+    existing_reaction = 
+      Repo.get_by(Reaction, message_id: message_id, user_id: user_id, emoji: emoji)
+    
+    if existing_reaction do
+      # Remove the reaction
+      {:ok, _} = Repo.delete(existing_reaction)
+      broadcast_reaction_removed(message_id, user_id, emoji)
+      {:ok, :removed}
+    else
+      # Add the reaction
+      %Reaction{}
+      |> Reaction.changeset(%{
+        message_id: message_id,
+        user_id: user_id,
+        emoji: emoji
+      })
+      |> Repo.insert()
+      |> case do
+        {:ok, reaction} ->
+          broadcast_reaction_added(message_id, user_id, emoji)
+          {:ok, reaction}
+        {:error, changeset} ->
+          {:error, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Gets all reactions for a message grouped by emoji with user info.
+  """
+  def get_message_reactions(message_id) do
+    from(r in Reaction,
+      where: r.message_id == ^message_id,
+      join: u in assoc(r, :user),
+      select: %{emoji: r.emoji, user: u, user_id: r.user_id}
+    )
+    |> Repo.all()
+    |> Enum.group_by(& &1.emoji)
+    |> Enum.map(fn {emoji, reactions} ->
+      %{
+        emoji: emoji,
+        count: length(reactions),
+        users: Enum.map(reactions, & &1.user),
+        user_ids: Enum.map(reactions, & &1.user_id)
+      }
+    end)
+  end
+
+  defp broadcast_reaction_added(message_id, user_id, emoji) do
+    Phoenix.PubSub.broadcast(
+      Emberchat.PubSub,
+      "reactions:#{message_id}",
+      {:reaction_added, %{message_id: message_id, user_id: user_id, emoji: emoji}}
+    )
+  end
+
+  defp broadcast_reaction_removed(message_id, user_id, emoji) do
+    Phoenix.PubSub.broadcast(
+      Emberchat.PubSub,
+      "reactions:#{message_id}",
+      {:reaction_removed, %{message_id: message_id, user_id: user_id, emoji: emoji}}
+    )
+  end
+
+  @doc """
+  Subscribe to reactions for a specific message.
+  """
+  def subscribe_reactions(message_id) do
+    Phoenix.PubSub.subscribe(Emberchat.PubSub, "reactions:#{message_id}")
   end
 end

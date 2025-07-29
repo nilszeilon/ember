@@ -56,16 +56,18 @@ defmodule EmberchatWeb.ChatComponents do
 
   def message_bubble(assigns) do
     assigns = assign_new(assigns, :highlighted, fn -> false end)
+    assigns = assign_new(assigns, :current_user_id, fn -> nil end)
+    assigns = assign_new(assigns, :show_all_reactions, fn -> false end)
     
     ~H"""
     <div class={[
-      "chat chat-start transition-all duration-500 rounded-lg",
+      "transition-all duration-500 rounded-lg",
       @highlighted && "bg-yellow-100 border-2 border-yellow-400 p-2 -m-2"
     ]} id={"message-#{@message.id}"}>
       <%= if @message.parent_message do %>
-        <div class="mb-2 opacity-70">
+        <div class="mb-2 opacity-70 ml-14">
           <div
-            class="card card-compact bg-base-200 cursor-pointer hover:bg-neutral transition-colors"
+            class="card card-compact bg-base-200 cursor-pointer hover:bg-neutral transition-colors inline-block"
             phx-click={JS.dispatch("scroll-to-message", to: "#message-#{@message.parent_message.id}")}
           >
             <div class="card-body p-2">
@@ -81,34 +83,53 @@ defmodule EmberchatWeb.ChatComponents do
         </div>
       <% end %>
 
-      <div class="chat-image avatar avatar-placeholder">
-        <div class="w-10 rounded-full bg-neutral text-primary-content placeholder">
-          <span class="text-xl">
-            {String.first(@message.user.username || @message.user.email) |> String.upcase()}
-          </span>
+      <div class="flex gap-3">
+        <div class="flex-shrink-0">
+          <div class="avatar avatar-placeholder">
+            <div class="w-10 rounded-full bg-neutral text-primary-content placeholder">
+              <span class="text-xl">
+                {String.first(@message.user.username || @message.user.email) |> String.upcase()}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex-1 min-w-0">
+          <div class="mb-1">
+            <span class="font-medium">{@message.user.username}</span>
+            <time class="text-xs opacity-50 ml-2">
+              {Calendar.strftime(@message.inserted_at, "%I:%M %p")}
+            </time>
+          </div>
+          
+          <div class="inline-block">
+            <div class="bg-primary text-primary-content rounded-2xl px-4 py-2 group relative">
+              <span class="break-words">{@message.content}</span>
+              <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                <.reaction_picker message_id={@message.id} />
+                <button
+                  class="btn btn-circle btn-ghost btn-xs"
+                  phx-click="reply_to"
+                  phx-value-message_id={@message.id}
+                  title="Reply to this message"
+                >
+                  <.icon name="hero-arrow-uturn-left" class="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="chat-header">
-        <span class="font-medium">{@message.user.username}</span>
-        <time class="text-xs opacity-50">
-          {Calendar.strftime(@message.inserted_at, "%I:%M %p")}
-        </time>
-      </div>
-
-      <div class="chat-bubble chat-bubble-primary group relative">
-        <span class="break-words">{@message.content}</span>
-        <button
-          class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity btn btn-circle btn-ghost btn-xs"
-          phx-click="reply_to"
-          phx-value-message_id={@message.id}
-          title="Reply to this message"
-        >
-          <.icon name="hero-arrow-uturn-left" class="h-3 w-3" />
-        </button>
-      </div>
+      
+      <.message_reactions 
+        reactions={Map.get(@message, :reaction_summary, [])} 
+        message_id={@message.id}
+        current_user_id={@current_user_id}
+        show_all={@show_all_reactions}
+      />
       
       <%= if @message.reply_count > 0 do %>
-        <div class="mt-2">
+        <div class="mt-2 ml-14">
           <button
             phx-click="show_thread"
             phx-value-message_id={@message.id}
@@ -773,6 +794,88 @@ defmodule EmberchatWeb.ChatComponents do
         </div>
       </div>
     </div>
+    """
+  end
+
+  def reaction_picker(assigns) do
+    ~H"""
+    <div class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-circle btn-ghost btn-xs" title="Add reaction">
+        <.icon name="hero-face-smile" class="h-3 w-3" />
+      </label>
+      <div tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64">
+        <div class="grid grid-cols-5 gap-1 p-2">
+          <% allowed_emojis = ["👍", "❤️", "😂", "🎉", "🤔", "👎", "🔥", "👏", "💯", "😢"] %>
+          <%= for emoji <- allowed_emojis do %>
+            <button
+              phx-click="toggle_reaction"
+              phx-value-message_id={@message_id}
+              phx-value-emoji={emoji}
+              class="btn btn-ghost btn-sm text-xl hover:bg-base-200"
+              title={"React with #{emoji}"}
+            >
+              {emoji}
+            </button>
+          <% end %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def message_reactions(assigns) do
+    assigns = assign_new(assigns, :show_all, fn -> false end)
+    
+    ~H"""
+    <%= if length(@reactions) > 0 do %>
+      <div class="mt-2 ml-14">
+        <div class="flex flex-wrap gap-1">
+          <% visible_reactions = if @show_all, do: @reactions, else: Enum.take(@reactions, 10) %>
+          <%= for reaction <- visible_reactions do %>
+            <button
+              phx-click="toggle_reaction"
+              phx-value-message_id={@message_id}
+              phx-value-emoji={reaction.emoji}
+              class={[
+                "btn btn-xs gap-1 h-7",
+                @current_user_id in (reaction.user_ids || []) && "btn-primary",
+                !(@current_user_id in (reaction.user_ids || [])) && "btn-ghost border-base-300"
+              ]}
+              title={
+                reaction.users
+                |> Enum.map(& &1.username || &1.email)
+                |> Enum.join(", ")
+              }
+            >
+              <span class="text-sm">{reaction.emoji}</span>
+              <span class="text-xs font-normal">{reaction.count}</span>
+            </button>
+          <% end %>
+          
+          <%= if length(@reactions) > 10 && !@show_all do %>
+            <button
+              phx-click="toggle_show_all_reactions"
+              phx-value-message_id={@message_id}
+              class="btn btn-xs btn-ghost border-base-300 h-7"
+              title="Show all reactions"
+            >
+              <span class="text-xs">+{length(@reactions) - 10} more</span>
+            </button>
+          <% end %>
+          
+          <%= if @show_all && length(@reactions) > 10 do %>
+            <button
+              phx-click="toggle_show_all_reactions"
+              phx-value-message_id={@message_id}
+              class="btn btn-xs btn-ghost border-base-300 h-7"
+              title="Show less reactions"
+            >
+              <span class="text-xs">Show less</span>
+            </button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
     """
   end
 end
