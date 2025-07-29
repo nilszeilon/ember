@@ -19,8 +19,6 @@ defmodule EmberchatWeb.Router do
 
   scope "/", EmberchatWeb do
     pipe_through :browser
-
-    get "/", PageController, :home
   end
 
   # Other scopes may use custom stacks.
@@ -55,8 +53,8 @@ defmodule EmberchatWeb.Router do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
 
-      live "/chat", ChatLive, :index
-      live "/chat/:room_id", ChatLive, :show
+      live "/", ChatLive, :index
+      live "/:room_id", ChatLive, :show
       live "/search", SearchLive, :index
 
       # live "/rooms/:room_id/messages", MessageLive.Index, :index

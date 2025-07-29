@@ -11,7 +11,7 @@ defmodule EmberchatWeb.MessageLive.Show do
         Message {@message.id}
         <:subtitle>This is a message record from your database.</:subtitle>
         <:actions>
-          <.button navigate={~p"/chat/#{@room}"}>
+          <.button navigate={~p"/#{@room}"}>
             <.icon name="hero-arrow-left" />
           </.button>
           <.button
@@ -59,7 +59,7 @@ defmodule EmberchatWeb.MessageLive.Show do
     {:noreply,
      socket
      |> put_flash(:error, "The current message was deleted.")
-     |> push_navigate(to: ~p"/chat/#{room}")}
+     |> push_navigate(to: ~p"/#{room}")}
   end
 
   def handle_info({type, %Emberchat.Chat.Message{}}, socket)

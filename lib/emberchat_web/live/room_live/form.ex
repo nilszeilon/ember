@@ -99,7 +99,7 @@ defmodule EmberchatWeb.RoomLive.Form do
       MatchError ->
         socket
         |> put_flash(:error, "You can only edit rooms you own.")
-        |> push_navigate(to: ~p"/chat")
+        |> push_navigate(to: ~p"/")
     end
   end
 
@@ -141,7 +141,7 @@ defmodule EmberchatWeb.RoomLive.Form do
         {:noreply,
          socket
          |> put_flash(:error, "You can only edit rooms you own.")
-         |> push_navigate(to: ~p"/chat")}
+         |> push_navigate(to: ~p"/")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
@@ -163,6 +163,6 @@ defmodule EmberchatWeb.RoomLive.Form do
     end
   end
 
-  defp return_path(_scope, "index", _room), do: ~p"/chat"
-  defp return_path(_scope, "show", room), do: ~p"/chat/#{room}"
+  defp return_path(_scope, "index", _room), do: ~p"/"
+  defp return_path(_scope, "show", room), do: ~p"/#{room}"
 end

@@ -51,7 +51,7 @@ defmodule EmberchatWeb.UserLive.Registration do
 
   def mount(_params, _session, %{assigns: %{current_scope: %{user: user}}} = socket)
       when not is_nil(user) do
-    {:ok, redirect(socket, to: ~p"/chat")}
+    {:ok, redirect(socket, to: ~p"/")}
   end
 
   def mount(_params, _session, socket) do

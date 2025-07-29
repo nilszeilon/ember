@@ -11,7 +11,7 @@ defmodule EmberchatWeb.RoomLive.Show do
         Room {@room.id}
         <:subtitle>This is a room record from your database.</:subtitle>
         <:actions>
-          <.button navigate={~p"/chat"}>
+          <.button navigate={~p"/"}>
             <.icon name="hero-arrow-left" />
           </.button>
           <%= if @room.user_id == @current_scope.user.id do %>
@@ -78,7 +78,7 @@ defmodule EmberchatWeb.RoomLive.Show do
     {:noreply,
      socket
      |> put_flash(:error, "The current room was deleted.")
-     |> push_navigate(to: ~p"/chat")}
+     |> push_navigate(to: ~p"/")}
   end
 
   def handle_info({type, %Emberchat.Chat.Room{}}, socket)

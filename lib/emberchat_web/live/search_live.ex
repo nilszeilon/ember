@@ -393,7 +393,7 @@ defmodule EmberchatWeb.SearchLive do
             <div class="space-y-4">
               <%= for message <- @search_results do %>
                 <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer"
-                     phx-click={JS.navigate(~p"/chat/#{message.room_id}?highlight=#{message.id}")}>
+                     phx-click={JS.navigate(~p"/#{message.room_id}?highlight=#{message.id}")}>
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
                       <!-- Message Header -->

@@ -55,7 +55,7 @@ defmodule EmberchatWeb.UserSessionController do
     UserAuth.disconnect_sessions(expired_tokens)
 
     conn
-    |> put_session(:user_return_to, ~p"/chat")
+    |> put_session(:user_return_to, ~p"/")
     |> create(params, "Password updated successfully!")
   end
 

@@ -117,7 +117,7 @@ defmodule EmberchatWeb.MessageLive.Form do
   end
 
   defp return_path(_scope, "index", room, _message),
-    do: ~p"/chat/#{room}"
+    do: ~p"/#{room}"
 
-  defp return_path(_scope, "show", room, message), do: ~p"/chat/#{room}/messages/#{message}"
+  defp return_path(_scope, "show", room, message), do: ~p"/#{room}/messages/#{message}"
 end

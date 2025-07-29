@@ -731,7 +731,7 @@ defmodule EmberchatWeb.ChatLive do
          |> assign(:show_room_modal, false)
          |> assign(:room_form, nil)
          |> assign(:editing_room, nil)
-         |> push_patch(to: ~p"/chat/#{room}")}
+         |> push_patch(to: ~p"/#{room}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :room_form, to_form(changeset))}

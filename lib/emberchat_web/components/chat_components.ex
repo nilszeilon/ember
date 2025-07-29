@@ -7,7 +7,7 @@ defmodule EmberchatWeb.ChatComponents do
       <%= for room <- @rooms do %>
         <div class="w-full">
           <.link
-            patch={~p"/chat/#{room}"}
+            patch={~p"/#{room}"}
             class={[
               "block w-full p-2 rounded-lg transition-all duration-200 hover:bg-base-300 border",
               @drawer_open && "flex items-center gap-3",
@@ -625,7 +625,7 @@ defmodule EmberchatWeb.ChatComponents do
             <div class="space-y-3">
               <%= for message <- @search_results do %>
                 <div class="card bg-base-100 border border-base-300 hover:border-primary/50 transition-all cursor-pointer"
-                     phx-click={JS.navigate(~p"/chat/#{message.room_id}?highlight=#{message.id}")}>
+                     phx-click={JS.navigate(~p"/#{message.room_id}?highlight=#{message.id}")}>
                   <div class="card-body p-4">
                     <!-- Message Header -->
                     <div class="flex items-center justify-between mb-2">
