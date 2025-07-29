@@ -39,3 +39,7 @@ npm-debug.log
 *.db
 *.db-*
 
+
+# generated
+flake.lock
+mix.lock

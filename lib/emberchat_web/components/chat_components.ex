@@ -214,39 +214,6 @@ defmodule EmberchatWeb.ChatComponents do
         <% end %>
       </div>
       
-    <!-- User Info -->
-      <div class="px-2 py-2">
-        <div class="card bg-base-100 shadow-sm">
-          <div class="card-body p-2">
-            <%= if @drawer_open do %>
-              <div class="flex items-center gap-3 flex-row">
-                <div class="avatar avatar-placeholder">
-                  <div class="bg-neutral text-primary-content rounded-full w-8">
-                    <span class="text-base">
-                      {String.first(@current_user.username) |> String.upcase()}
-                    </span>
-                  </div>
-                </div>
-                <div class="flex-1">
-                  <p class="font-medium text-sm">{@current_user.username}</p>
-                  <p class="text-xs text-base-content/60">Online</p>
-                </div>
-              </div>
-            <% else %>
-              <div class="flex justify-center">
-                <div class="avatar avatar-placeholder">
-                  <div class="bg-neutral text-primary-content rounded-full w-10">
-                    <span class="text-sm">
-                      {String.first(@current_user.username) |> String.upcase()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            <% end %>
-          </div>
-        </div>
-      </div>
-      
     <!-- Navigation -->
       <div class="px-2 py-2">
         <button
