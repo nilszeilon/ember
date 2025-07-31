@@ -31,6 +31,9 @@
           pkg-config
           # if you need image processing:
           imagemagick
+          # Ruby for Kamal deployment
+          ruby_3_3
+          docker
         ];
 
       in {
@@ -42,7 +45,17 @@
             export MIX_ENV=dev
             export ERL_AFLAGS="-kernel shell_history enabled"
             export PATH="$PWD/assets/node_modules/.bin:$PATH"
-            echo "🚀 Ready: Phoenix 1.8 RC dev shell"
+            
+            # Add Ruby gem bin directory to PATH
+            export PATH="$HOME/.local/share/gem/ruby/3.3.0/bin:$PATH"
+            
+            # Install Kamal if not already installed
+            if ! command -v kamal &> /dev/null; then
+              echo "Installing Kamal..."
+              gem install kamal
+            fi
+            
+            echo "🚀 Ready: Phoenix 1.8 RC dev shell with Kamal deployment"
           '';
         };
       });
