@@ -22,7 +22,7 @@ defmodule EmberchatWeb.ChatLive do
       Chat.subscribe_search(socket.assigns.current_scope)
     end
 
-    rooms = Room.list_rooms(socket.assigns.current_scope)
+    rooms = Chat.list_rooms(socket.assigns.current_scope)
 
     # Get drawer state from process dictionary or default to false
     drawer_open = Process.get(:drawer_open, false)
@@ -80,12 +80,15 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:pinning_message, nil)
      |> assign(:pin_slug, "")
      |> assign(:pinned_messages, [])
+     |> assign(:selected_message_index, -1)
+     |> assign(:show_keyboard_shortcuts, false)
+     |> assign(:pin_message_id, nil)
      |> assign(:page_title, "Chat"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
   @impl true
   def handle_params(%{"room_id" => room_id} = params, _url, socket) do
-    room = Room.get_room!(socket.assigns.current_scope, room_id)
+    room = Chat.get_room!(socket.assigns.current_scope, room_id)
     messages = Chat.list_room_messages(socket.assigns.current_scope, room.id)
     pinned_messages = Pinned.list_pinned_messages(socket.assigns.current_scope, room.id)
     highlight_message_id = params["highlight"]
@@ -244,6 +247,11 @@ defmodule EmberchatWeb.ChatLive do
   def handle_event("keyboard_shortcut", params, socket),
     do: NavigationHelpers.handle_event("keyboard_shortcut", params, socket)
 
+  @impl true
+  def handle_event("highlight_message", %{"message_id" => message_id}, socket) do
+    {:noreply, assign(socket, :highlight_message_id, to_string(message_id))}
+  end
+
   # Delegate reaction events to ReactionsHelpers
   @impl true
   def handle_event("toggle_reaction", params, socket),
@@ -281,7 +289,11 @@ defmodule EmberchatWeb.ChatLive do
 
   @impl true
   def handle_info({:similar_search_results_ready, results, original_message}, socket),
-    do: SearchHelpers.handle_info({:similar_search_results_ready, results, original_message}, socket)
+    do:
+      SearchHelpers.handle_info(
+        {:similar_search_results_ready, results, original_message},
+        socket
+      )
 
   @impl true
   def handle_info({:search_suggestions_ready, suggestions}, socket),
@@ -365,7 +377,6 @@ defmodule EmberchatWeb.ChatLive do
   @impl true
   def handle_info(:clear_highlight, socket),
     do: MessagesHelpers.handle_info(:clear_highlight, socket)
-
 
   @impl true
   def render(assigns) do

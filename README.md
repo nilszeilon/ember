@@ -20,6 +20,7 @@ Ember is an open-source alternative mainstream chat apps like slack or discord.
 - [ ] easy to share auth system with another app, like add community-chat should be a nobrainer
 
 ## TODO things that are important
+- [ ] vim like nav
 - [ ] deploy guides (dead simple or bust)
 - [ ] email providers
 

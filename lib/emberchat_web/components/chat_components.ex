@@ -60,10 +60,7 @@ defmodule EmberchatWeb.ChatComponents do
     assigns = assign_new(assigns, :show_all_reactions, fn -> false end)
     
     ~H"""
-    <div class={[
-      "transition-all duration-500 rounded-lg",
-      @highlighted && "bg-yellow-100 border-2 border-yellow-400 p-2 -m-2"
-    ]} id={"message-#{@message.id}"}>
+    <div id={"message-#{@message.id}"}>
       <%= if @message.is_pinned do %>
         <div class="mb-2 flex items-center gap-2 text-xs text-primary">
           <.icon name="hero-bookmark-solid" class="h-4 w-4" />
@@ -116,7 +113,10 @@ defmodule EmberchatWeb.ChatComponents do
           </div>
           
           <div class="inline-block">
-            <div class="bg-primary text-primary-content rounded-2xl px-4 py-2 group relative">
+            <div class={[
+              "bg-primary text-primary-content rounded-2xl px-4 py-2 group relative transition-all duration-500",
+              @highlighted && "!bg-yellow-100 !text-gray-900 border-4 border-yellow-400 shadow-lg"
+            ]}>
               <span class="break-words">{@message.content}</span>
               <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                 <.reaction_picker message_id={@message.id} />
@@ -897,6 +897,87 @@ defmodule EmberchatWeb.ChatComponents do
         </div>
       </div>
     <% end %>
+    """
+  end
+
+  def keyboard_shortcuts_modal(assigns) do
+    ~H"""
+    <div
+      id="keyboard-shortcuts-modal"
+      class={[
+        "modal",
+        @show_keyboard_shortcuts && "modal-open"
+      ]}
+      phx-click-away="hide_keyboard_shortcuts"
+    >
+      <div class="modal-box max-w-2xl">
+        <h3 class="font-bold text-lg mb-4">Keyboard Shortcuts</h3>
+        
+        <div class="space-y-6">
+          <div>
+            <h4 class="font-semibold text-sm mb-2 text-base-content/70">Navigation</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Next message</span>
+                <kbd class="kbd kbd-sm">j</kbd>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Previous message</span>
+                <kbd class="kbd kbd-sm">k</kbd>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Search</span>
+                <div class="flex gap-1">
+                  <kbd class="kbd kbd-sm">⌘</kbd>
+                  <span class="text-xs self-center">+</span>
+                  <kbd class="kbd kbd-sm">k</kbd>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Close modals</span>
+                <kbd class="kbd kbd-sm">Esc</kbd>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 class="font-semibold text-sm mb-2 text-base-content/70">Actions</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Reply to message</span>
+                <kbd class="kbd kbd-sm">r</kbd>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Like/React to message</span>
+                <kbd class="kbd kbd-sm">l</kbd>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Pin message</span>
+                <kbd class="kbd kbd-sm">p</kbd>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Show this help</span>
+                <kbd class="kbd kbd-sm">?</kbd>
+              </div>
+            </div>
+          </div>
+          
+          <div class="text-sm text-base-content/60 mt-4">
+            <p>Note: Keyboard shortcuts are disabled when typing in input fields.</p>
+          </div>
+        </div>
+        
+        <div class="modal-action">
+          <button
+            type="button"
+            class="btn btn-sm"
+            phx-click="hide_keyboard_shortcuts"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
     """
   end
 end

@@ -64,7 +64,15 @@ const hooks = {
   KeyboardShortcuts: {
     mounted() {
       this.handleKeyDown = (e) => {
-        // Ctrl+K or Cmd+K to open search
+        // Check if user is typing in an input field
+        const activeElement = document.activeElement
+        const isTyping = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.contentEditable === 'true'
+        )
+        
+        // Ctrl+K or Cmd+K to open search (works even when typing)
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
           e.preventDefault()
           this.pushEvent("keyboard_shortcut", {
@@ -72,13 +80,42 @@ const hooks = {
             ctrlKey: e.ctrlKey,
             metaKey: e.metaKey
           })
+          return
         }
-        // ESC to close modals and focus search
-        else if (e.key === 'Escape') {
-          // Don't prevent default to allow normal ESC behavior
-          this.pushEvent("keyboard_shortcut", {
-            key: e.key
-          })
+        
+        // Don't process other shortcuts when user is typing
+        if (isTyping) return
+        
+        // Navigation and action shortcuts
+        switch(e.key) {
+          case '?':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: '?' })
+            break
+          case 'j':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: 'j' })
+            break
+          case 'k':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: 'k' })
+            break
+          case 'r':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: 'r' })
+            break
+          case 'l':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: 'l' })
+            break
+          case 'p':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: 'p' })
+            break
+          case 'Escape':
+            // Don't prevent default to allow normal ESC behavior
+            this.pushEvent("keyboard_shortcut", { key: 'Escape' })
+            break
         }
       }
       
@@ -117,13 +154,8 @@ const hooks = {
           block: 'center'
         })
         
-        // Add a brief pulse animation after scrolling
-        setTimeout(() => {
-          targetElement.classList.add('animate-pulse')
-          setTimeout(() => {
-            targetElement.classList.remove('animate-pulse')
-          }, 1000)
-        }, 500)
+        // Push event to server to update highlight state
+        this.pushEvent("highlight_message", {message_id: messageId})
       }
     }
   }
