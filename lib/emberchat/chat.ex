@@ -5,6 +5,7 @@ defmodule Emberchat.Chat do
 
   import Ecto.Query, warn: false
   alias Emberchat.Repo
+  require Logger
 
   alias Emberchat.Chat.Room
   alias Emberchat.Accounts.Scope
@@ -208,7 +209,7 @@ defmodule Emberchat.Chat do
     
     query = from(m in Message, 
       where: m.room_id == ^room_id,
-      preload: [:user, :reactions, parent_message: :user],
+      preload: [:user, :reactions, :pinned_by, parent_message: :user],
       order_by: [asc: m.inserted_at]
     )
     
@@ -230,7 +231,7 @@ defmodule Emberchat.Chat do
   def list_thread_messages(_scope, parent_message_id) do
     messages = from(m in Message,
       where: m.parent_message_id == ^parent_message_id,
-      preload: [:user, :reactions, parent_message: :user],
+      preload: [:user, :reactions, :pinned_by, parent_message: :user],
       order_by: [asc: m.inserted_at]
     )
     |> Repo.all()
@@ -527,5 +528,55 @@ defmodule Emberchat.Chat do
   """
   def subscribe_reactions(message_id) do
     Phoenix.PubSub.subscribe(Emberchat.PubSub, "reactions:#{message_id}")
+  end
+
+  @doc """
+  Pins or unpins a message.
+  """
+  def toggle_pin_message(%Scope{} = scope, %Message{} = message, pin_slug \\ nil) do
+    attrs = if message.is_pinned do
+      %{is_pinned: false}
+    else
+      %{is_pinned: true, pin_slug: pin_slug}
+    end
+
+    changeset = Message.pin_changeset(message, attrs, scope)
+
+    Logger.info("test")
+
+    IO.puts("=== REACHED THIS POINT ===")
+    IO.inspect(changeset)
+
+    case Repo.update(changeset) do
+      {:ok, updated_message} ->
+        updated_message = Repo.preload(updated_message, [:user, :pinned_by])
+        broadcast_message(scope, {:updated, updated_message})
+        {:ok, updated_message}
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Lists all pinned messages in a room.
+  """
+  def list_pinned_messages(_scope, room_id) do
+    from(m in Message,
+      where: m.room_id == ^room_id and m.is_pinned == true,
+      order_by: [asc: m.pinned_at],
+      preload: [:user, :pinned_by]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a pinned message by its slug in a room.
+  """
+  def get_pinned_message_by_slug(_scope, room_id, slug) do
+    from(m in Message,
+      where: m.room_id == ^room_id and m.pin_slug == ^slug and m.is_pinned == true,
+      preload: [:user, :pinned_by]
+    )
+    |> Repo.one()
   end
 end

@@ -29,5 +29,6 @@ defmodule Emberchat.Accounts.Scope do
     %__MODULE__{user: user}
   end
 
+  # this is pretty based, we will pattern match on the function
   def for_user(nil), do: nil
 end

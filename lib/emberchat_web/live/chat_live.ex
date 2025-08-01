@@ -68,6 +68,10 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:similarity_weight, 0.7)
      |> assign(:recency_weight, 0.3)
      |> assign(:expanded_reactions, MapSet.new())
+     |> assign(:show_pin_modal, false)
+     |> assign(:pinning_message, nil)
+     |> assign(:pin_slug, "")
+     |> assign(:pinned_messages, [])
      |> assign(:page_title, "Chat"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
@@ -75,6 +79,7 @@ defmodule EmberchatWeb.ChatLive do
   def handle_params(%{"room_id" => room_id} = params, _url, socket) do
     room = Chat.get_room!(socket.assigns.current_scope, room_id)
     messages = Chat.list_room_messages(socket.assigns.current_scope, room.id)
+    pinned_messages = Chat.list_pinned_messages(socket.assigns.current_scope, room.id)
     highlight_message_id = params["highlight"]
 
     # Unsubscribe from previous room if any
@@ -99,6 +104,7 @@ defmodule EmberchatWeb.ChatLive do
       socket
       |> assign(:current_room, room)
       |> assign(:messages, messages)
+      |> assign(:pinned_messages, pinned_messages)
       |> assign(:new_message, %Message{room_id: room.id})
       |> assign(:replying_to, nil)
       |> assign(:highlight_message_id, highlight_message_id)
@@ -492,6 +498,80 @@ defmodule EmberchatWeb.ChatLive do
   end
 
   @impl true
+  def handle_event("toggle_pin", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    message = Enum.find(socket.assigns.messages, &(&1.id == message_id))
+    
+    if message do
+      # If unpinning, just toggle it. If pinning, show the modal
+      if message.is_pinned do
+        case Chat.toggle_pin_message(socket.assigns.current_scope, message) do
+          {:ok, _updated_message} ->
+            {:noreply, socket}
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, "Failed to unpin message")}
+        end
+      else
+        # Show modal to get slug
+        {:noreply, 
+         socket
+         |> assign(:show_pin_modal, true)
+         |> assign(:pinning_message, message)
+         |> assign(:pin_slug, "")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+  
+  @impl true
+  def handle_event("cancel_pin", _params, socket) do
+    {:noreply, 
+     socket
+     |> assign(:show_pin_modal, false)
+     |> assign(:pinning_message, nil)
+     |> assign(:pin_slug, "")}
+  end
+  
+  @impl true
+  def handle_event("confirm_pin", %{"slug" => slug}, socket) do
+    if socket.assigns.pinning_message do
+      case Chat.toggle_pin_message(socket.assigns.current_scope, socket.assigns.pinning_message, slug) do
+        {:ok, _updated_message} ->
+          {:noreply, 
+           socket
+           |> assign(:show_pin_modal, false)
+           |> assign(:pinning_message, nil)
+           |> assign(:pin_slug, "")}
+        {:error, changeset} ->
+          {:noreply, put_flash(socket, :error, format_errors(changeset))}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+  
+  @impl true
+  def handle_event("update_pin_slug", %{"slug" => slug}, socket) do
+    {:noreply, assign(socket, :pin_slug, slug)}
+  end
+
+  @impl true
+  def handle_event("scroll_to_pinned", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    
+    socket = 
+      socket
+      |> assign(:highlight_message_id, to_string(message_id))
+      |> push_event("scroll_to_message", %{message_id: message_id})
+    
+    # Clear highlight after 3 seconds
+    Process.send_after(self(), :clear_highlight, 3000)
+    
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("find_similar", %{"message_id" => message_id}, socket) do
     message_id = String.to_integer(message_id)
 
@@ -686,10 +766,26 @@ defmodule EmberchatWeb.ChatLive do
           if m.id == message.id, do: message, else: m
         end)
 
-      {:noreply, assign(socket, :messages, messages)}
+      # Update pinned messages list if the message's pin status changed
+      old_message = Enum.find(socket.assigns.messages, &(&1.id == message.id))
+      pinned_messages = if old_message && message.is_pinned != old_message.is_pinned do
+        Chat.list_pinned_messages(socket.assigns.current_scope, socket.assigns.current_room.id)
+      else
+        socket.assigns.pinned_messages
+      end
+
+      {:noreply, 
+       socket
+       |> assign(:messages, messages)
+       |> assign(:pinned_messages, pinned_messages)}
     else
       {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_info(:clear_highlight, socket) do
+    {:noreply, assign(socket, :highlight_message_id, nil)}
   end
 
   @impl true
@@ -800,6 +896,31 @@ defmodule EmberchatWeb.ChatLive do
           
           <!-- Messages container - takes remaining height -->
           <div class="flex-1 overflow-y-auto p-6 min-h-0" id="messages-container" phx-hook="MessageScroll" phx-click="hide_thread">
+            <!-- Pinned Messages Section -->
+            <%= if @pinned_messages != [] do %>
+              <div class="mb-4 px-2">
+                <div class="flex items-center gap-2 text-xs text-base-content/60 mb-2">
+                  <.icon name="hero-bookmark-solid" class="h-3 w-3" />
+                  <span>Pinned</span>
+                </div>
+                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  <%= for pinned_message <- @pinned_messages do %>
+                    <button
+                      class="flex-shrink-0 px-3 py-1 bg-base-200 hover:bg-base-300 rounded-full text-xs font-medium border border-base-300 hover:border-primary/20 transition-colors cursor-pointer"
+                      phx-click="scroll_to_pinned"
+                      phx-value-message_id={pinned_message.id}
+                    >
+                      <%= if pinned_message.pin_slug do %>
+                        #{pinned_message.pin_slug}
+                      <% else %>
+                        Pinned message
+                      <% end %>
+                    </button>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+            
             <div class="space-y-4">
               <%= for message <- @messages do %>
                 <.message_bubble
@@ -854,6 +975,33 @@ defmodule EmberchatWeb.ChatLive do
         recency_weight={@recency_weight}
       />
       
+    <!-- Pin Modal -->
+      <%= if @show_pin_modal do %>
+        <div class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg">Pin Message</h3>
+            <p class="py-4">Enter a slug to easily identify this pinned message:</p>
+            <form phx-submit="confirm_pin">
+              <input
+                type="text"
+                name="slug"
+                value={@pin_slug}
+                phx-change="update_pin_slug"
+                class="input input-bordered w-full"
+                placeholder="e.g., important-announcement"
+                pattern="[a-z0-9-]+"
+                title="Only lowercase letters, numbers, and hyphens"
+                required
+              />
+              <div class="modal-action">
+                <button type="button" class="btn" phx-click="cancel_pin">Cancel</button>
+                <button type="submit" class="btn btn-primary">Pin Message</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      <% end %>
+      
     <!-- Thread View -->
       <.thread_view
         show={@show_thread}
@@ -869,5 +1017,15 @@ defmodule EmberchatWeb.ChatLive do
       />
     </div>
     """
+  end
+
+  defp format_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
+    |> Enum.map(fn {k, v} -> "#{k} #{Enum.join(v, ", ")}" end)
+    |> Enum.join(", ")
   end
 end

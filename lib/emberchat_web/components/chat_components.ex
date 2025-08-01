@@ -64,6 +64,19 @@ defmodule EmberchatWeb.ChatComponents do
       "transition-all duration-500 rounded-lg",
       @highlighted && "bg-yellow-100 border-2 border-yellow-400 p-2 -m-2"
     ]} id={"message-#{@message.id}"}>
+      <%= if @message.is_pinned do %>
+        <div class="mb-2 flex items-center gap-2 text-xs text-primary">
+          <.icon name="hero-bookmark-solid" class="h-4 w-4" />
+          <span class="font-medium">Pinned</span>
+          <%= if @message.pin_slug do %>
+            <span class="text-base-content/60">#{@message.pin_slug}</span>
+          <% end %>
+          <%= if @message.pinned_by && Ecto.assoc_loaded?(@message.pinned_by) do %>
+            <span class="text-base-content/60">by {@message.pinned_by.username}</span>
+          <% end %>
+        </div>
+      <% end %>
+      
       <%= if @message.parent_message do %>
         <div class="mb-2 opacity-70 ml-14">
           <div
@@ -107,6 +120,14 @@ defmodule EmberchatWeb.ChatComponents do
               <span class="break-words">{@message.content}</span>
               <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                 <.reaction_picker message_id={@message.id} />
+                <button
+                  class="btn btn-circle btn-ghost btn-xs"
+                  phx-click="toggle_pin"
+                  phx-value-message_id={@message.id}
+                  title={if @message.is_pinned, do: "Unpin message", else: "Pin message"}
+                >
+                  <.icon name={if @message.is_pinned, do: "hero-bookmark-solid", else: "hero-bookmark"} class="h-3 w-3" />
+                </button>
                 <button
                   class="btn btn-circle btn-ghost btn-xs"
                   phx-click="reply_to"
