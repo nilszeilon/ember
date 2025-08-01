@@ -7,6 +7,7 @@ defmodule EmberchatWeb.ChatLive do
   alias Emberchat.Chat.Room
   alias Emberchat.Chat.Pinned
   alias EmberchatWeb.ChatLive.Pinned, as: PinnedHelpers
+  alias EmberchatWeb.ChatLive.Room, as: RoomHelpers
 
   @impl true
   def mount(_params, _session, socket) do
@@ -16,7 +17,7 @@ defmodule EmberchatWeb.ChatLive do
       Chat.subscribe_search(socket.assigns.current_scope)
     end
 
-    rooms = Chat.list_rooms(socket.assigns.current_scope)
+    rooms = Room.list_rooms(socket.assigns.current_scope)
 
     # Get drawer state from process dictionary or default to false
     drawer_open = Process.get(:drawer_open, false)
@@ -79,7 +80,7 @@ defmodule EmberchatWeb.ChatLive do
 
   @impl true
   def handle_params(%{"room_id" => room_id} = params, _url, socket) do
-    room = Chat.get_room!(socket.assigns.current_scope, room_id)
+    room = Room.get_room!(socket.assigns.current_scope, room_id)
     messages = Chat.list_room_messages(socket.assigns.current_scope, room.id)
     pinned_messages = Pinned.list_pinned_messages(socket.assigns.current_scope, room.id)
     highlight_message_id = params["highlight"]
@@ -95,7 +96,7 @@ defmodule EmberchatWeb.ChatLive do
     # Subscribe to messages for this specific room
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Emberchat.PubSub, "room:#{room.id}:messages")
-      
+
       # Subscribe to reactions for all messages in the room
       Enum.each(messages, fn message ->
         Chat.subscribe_reactions(message.id)
@@ -151,70 +152,24 @@ defmodule EmberchatWeb.ChatLive do
     {:noreply, assign(socket, :drawer_open, new_drawer_state)}
   end
 
-  @impl true
-  def handle_event("show_new_room_modal", _params, socket) do
-    room = %Room{user_id: socket.assigns.current_scope.user.id}
-    changeset = Chat.change_room(socket.assigns.current_scope, room)
+  # Delegate room events to RoomHelpers
+  def handle_event("show_new_room_modal", params, socket),
+    do: RoomHelpers.handle_event("show_new_room_modal", params, socket)
 
-    {:noreply,
-     socket
-     |> assign(:show_room_modal, true)
-     |> assign(:room_modal_mode, :new)
-     |> assign(:editing_room, room)
-     |> assign(:selected_emoji, "💬")
-     |> assign(:room_form, to_form(changeset))}
-  end
+  def handle_event("show_edit_room_modal", params, socket),
+    do: RoomHelpers.handle_event("show_edit_room_modal", params, socket)
 
-  @impl true
-  def handle_event("show_edit_room_modal", %{"room_id" => room_id}, socket) do
-    room = Chat.get_room!(socket.assigns.current_scope, room_id)
+  def handle_event("close_room_modal", params, socket),
+    do: RoomHelpers.handle_event("close_room_modal", params, socket)
 
-    try do
-      changeset = Chat.change_room(socket.assigns.current_scope, room)
+  def handle_event("validate_room", params, socket),
+    do: RoomHelpers.handle_event("validate_room", params, socket)
 
-      {:noreply,
-       socket
-       |> assign(:show_room_modal, true)
-       |> assign(:room_modal_mode, :edit)
-       |> assign(:editing_room, room)
-       |> assign(:selected_emoji, Map.get(room, :emoji, "💬"))
-       |> assign(:room_form, to_form(changeset))}
-    rescue
-      MatchError ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "You can only edit rooms you own.")}
-    end
-  end
+  def handle_event("select_emoji", params, socket),
+    do: RoomHelpers.handle_event("select_emoji", params, socket)
 
-  @impl true
-  def handle_event("close_room_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_room_modal, false)
-     |> assign(:room_form, nil)
-     |> assign(:editing_room, nil)}
-  end
-
-  @impl true
-  def handle_event("validate_room", %{"room" => room_params}, socket) do
-    changeset =
-      Chat.change_room(socket.assigns.current_scope, socket.assigns.editing_room, room_params)
-
-    {:noreply, assign(socket, :room_form, to_form(changeset, action: :validate))}
-  end
-
-  @impl true
-  def handle_event("select_emoji", %{"emoji" => emoji}, socket) do
-    {:noreply, assign(socket, :selected_emoji, emoji)}
-  end
-
-  @impl true
-  def handle_event("save_room", %{"room" => room_params}, socket) do
-    # Add selected emoji to room params
-    room_params = Map.put(room_params, "emoji", socket.assigns.selected_emoji)
-    save_room(socket, socket.assigns.room_modal_mode, room_params)
-  end
+  def handle_event("save_room", params, socket),
+    do: RoomHelpers.handle_event("save_room", params, socket)
 
   @impl true
   def handle_event("update_draft", %{"message" => %{"content" => draft}}, socket) do
@@ -474,39 +429,48 @@ defmodule EmberchatWeb.ChatLive do
   @impl true
   def handle_event("toggle_reaction", %{"message_id" => message_id, "emoji" => emoji}, socket) do
     message_id = String.to_integer(message_id)
-    
+
     case Chat.toggle_reaction(socket.assigns.current_scope, message_id, emoji) do
       {:ok, :removed} ->
         {:noreply, socket}
+
       {:ok, _reaction} ->
         {:noreply, socket}
+
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to add reaction")}
     end
   end
 
   # Delegate pinning events to PinnedHelpers
-  def handle_event("toggle_pin", params, socket), do: PinnedHelpers.handle_event("toggle_pin", params, socket)
-  def handle_event("cancel_pin", params, socket), do: PinnedHelpers.handle_event("cancel_pin", params, socket)
-  def handle_event("confirm_pin", params, socket), do: PinnedHelpers.handle_event("confirm_pin", params, socket)
-  def handle_event("update_pin_slug", params, socket), do: PinnedHelpers.handle_event("update_pin_slug", params, socket)
-  def handle_event("scroll_to_pinned", params, socket), do: PinnedHelpers.handle_event("scroll_to_pinned", params, socket)
+  def handle_event("toggle_pin", params, socket),
+    do: PinnedHelpers.handle_event("toggle_pin", params, socket)
+
+  def handle_event("cancel_pin", params, socket),
+    do: PinnedHelpers.handle_event("cancel_pin", params, socket)
+
+  def handle_event("confirm_pin", params, socket),
+    do: PinnedHelpers.handle_event("confirm_pin", params, socket)
+
+  def handle_event("update_pin_slug", params, socket),
+    do: PinnedHelpers.handle_event("update_pin_slug", params, socket)
+
+  def handle_event("scroll_to_pinned", params, socket),
+    do: PinnedHelpers.handle_event("scroll_to_pinned", params, socket)
 
   @impl true
   def handle_event("toggle_show_all_reactions", %{"message_id" => message_id}, socket) do
     message_id = String.to_integer(message_id)
-    
-    expanded_reactions = 
+
+    expanded_reactions =
       if MapSet.member?(socket.assigns.expanded_reactions, message_id) do
         MapSet.delete(socket.assigns.expanded_reactions, message_id)
       else
         MapSet.put(socket.assigns.expanded_reactions, message_id)
       end
-    
+
     {:noreply, assign(socket, :expanded_reactions, expanded_reactions)}
   end
-
-  
 
   @impl true
   def handle_event("find_similar", %{"message_id" => message_id}, socket) do
@@ -624,30 +588,32 @@ defmodule EmberchatWeb.ChatLive do
   @impl true
   def handle_info({:reaction_added, %{message_id: message_id}}, socket) do
     # Update the message's reaction summary
-    messages = Enum.map(socket.assigns.messages, fn message ->
-      if message.id == message_id do
-        reactions = Chat.get_message_reactions(message_id)
-        Map.put(message, :reaction_summary, reactions)
-      else
-        message
-      end
-    end)
-    
+    messages =
+      Enum.map(socket.assigns.messages, fn message ->
+        if message.id == message_id do
+          reactions = Chat.get_message_reactions(message_id)
+          Map.put(message, :reaction_summary, reactions)
+        else
+          message
+        end
+      end)
+
     {:noreply, assign(socket, :messages, messages)}
   end
 
   @impl true
   def handle_info({:reaction_removed, %{message_id: message_id}}, socket) do
     # Update the message's reaction summary
-    messages = Enum.map(socket.assigns.messages, fn message ->
-      if message.id == message_id do
-        reactions = Chat.get_message_reactions(message_id)
-        Map.put(message, :reaction_summary, reactions)
-      else
-        message
-      end
-    end)
-    
+    messages =
+      Enum.map(socket.assigns.messages, fn message ->
+        if message.id == message_id do
+          reactions = Chat.get_message_reactions(message_id)
+          Map.put(message, :reaction_summary, reactions)
+        else
+          message
+        end
+      end)
+
     {:noreply, assign(socket, :messages, messages)}
   end
 
@@ -684,10 +650,10 @@ defmodule EmberchatWeb.ChatLive do
         if connected?(socket) do
           Chat.subscribe_reactions(message.id)
         end
-        
+
         # Add the message with empty reaction summary
         message_with_reactions = Map.put(message, :reaction_summary, [])
-        
+
         {:noreply, update(socket, :messages, &(&1 ++ [message_with_reactions]))}
       end
     else
@@ -705,13 +671,18 @@ defmodule EmberchatWeb.ChatLive do
 
       # Update pinned messages list if the message's pin status changed
       old_message = Enum.find(socket.assigns.messages, &(&1.id == message.id))
-      pinned_messages = if old_message && message.is_pinned != old_message.is_pinned do
-        Pinned.list_pinned_messages(socket.assigns.current_scope, socket.assigns.current_room.id)
-      else
-        socket.assigns.pinned_messages
-      end
 
-      {:noreply, 
+      pinned_messages =
+        if old_message && message.is_pinned != old_message.is_pinned do
+          Pinned.list_pinned_messages(
+            socket.assigns.current_scope,
+            socket.assigns.current_room.id
+          )
+        else
+          socket.assigns.pinned_messages
+        end
+
+      {:noreply,
        socket
        |> assign(:messages, messages)
        |> assign(:pinned_messages, pinned_messages)}
@@ -735,41 +706,6 @@ defmodule EmberchatWeb.ChatLive do
     end
   end
 
-  defp save_room(socket, :edit, room_params) do
-    case Chat.update_room(socket.assigns.current_scope, socket.assigns.editing_room, room_params) do
-      {:ok, _room} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Room updated successfully")
-         |> assign(:show_room_modal, false)
-         |> assign(:room_form, nil)
-         |> assign(:editing_room, nil)}
-
-      {:error, :unauthorized} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "You can only edit rooms you own.")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :room_form, to_form(changeset))}
-    end
-  end
-
-  defp save_room(socket, :new, room_params) do
-    case Chat.create_room(socket.assigns.current_scope, room_params) do
-      {:ok, room} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Room created successfully")
-         |> assign(:show_room_modal, false)
-         |> assign(:room_form, nil)
-         |> assign(:editing_room, nil)
-         |> push_patch(to: ~p"/#{room}")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :room_form, to_form(changeset))}
-    end
-  end
 
   defp start_search(socket) do
     query = socket.assigns.search_query
@@ -831,8 +767,13 @@ defmodule EmberchatWeb.ChatLive do
           <!-- Chat header -->
           <.chat_header room={@current_room} current_user_id={@current_scope.user.id} />
           
-          <!-- Messages container - takes remaining height -->
-          <div class="flex-1 overflow-y-auto p-6 min-h-0" id="messages-container" phx-hook="MessageScroll" phx-click="hide_thread">
+    <!-- Messages container - takes remaining height -->
+          <div
+            class="flex-1 overflow-y-auto p-6 min-h-0"
+            id="messages-container"
+            phx-hook="MessageScroll"
+            phx-click="hide_thread"
+          >
             <!-- Pinned Messages Section -->
             <%= if @pinned_messages != [] do %>
               <div class="mb-4 px-2">
@@ -857,7 +798,7 @@ defmodule EmberchatWeb.ChatLive do
                 </div>
               </div>
             <% end %>
-            
+
             <div class="space-y-4">
               <%= for message <- @messages do %>
                 <.message_bubble
@@ -872,7 +813,7 @@ defmodule EmberchatWeb.ChatLive do
             </div>
           </div>
           
-          <!-- Fixed input bar at bottom -->
+    <!-- Fixed input bar at bottom -->
           <div class="flex-shrink-0">
             <.message_input
               replying_to={@replying_to}
@@ -955,5 +896,4 @@ defmodule EmberchatWeb.ChatLive do
     </div>
     """
   end
-
 end

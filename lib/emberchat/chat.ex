@@ -7,7 +7,6 @@ defmodule Emberchat.Chat do
   alias Emberchat.Repo
   require Logger
 
-  alias Emberchat.Chat.Room
   alias Emberchat.Accounts.Scope
 
   @doc """
@@ -30,7 +29,7 @@ defmodule Emberchat.Chat do
     Phoenix.PubSub.subscribe(Emberchat.PubSub, "public:rooms")
   end
 
-  defp broadcast(%Scope{} = scope, {_action, room} = message) do
+  def broadcast(%Scope{} = scope, {_action, room} = message) do
     # Always broadcast to the room owner
     Phoenix.PubSub.broadcast(Emberchat.PubSub, "user:#{scope.user.id}:rooms", message)
 
@@ -43,133 +42,6 @@ defmodule Emberchat.Chat do
   def broadcast_message(%Scope{} = _scope, {_action, message} = msg) do
     # Broadcast to the room channel so all users in the room receive messages
     Phoenix.PubSub.broadcast(Emberchat.PubSub, "room:#{message.room_id}:messages", msg)
-  end
-
-  @doc """
-  Returns the list of rooms.
-
-  ## Examples
-
-      iex> list_rooms(scope)
-      [%Room{}, ...]
-
-  """
-  def list_rooms(%Scope{} = scope) do
-    from(r in Room,
-      where: r.is_private == false or r.user_id == ^scope.user.id,
-      order_by: [asc: r.inserted_at]
-    )
-    |> Repo.all()
-  end
-
-  @doc """
-  Gets a single room.
-
-  Raises `Ecto.NoResultsError` if the Room does not exist.
-
-  ## Examples
-
-      iex> get_room!(123)
-      %Room{}
-
-      iex> get_room!(456)
-      ** (Ecto.NoResultsError)
-
-  """
-  def get_room!(%Scope{} = scope, id) do
-    room = Repo.get!(Room, id)
-
-    # Allow access if room is public or owned by user
-    if room.is_private == false or room.user_id == scope.user.id do
-      room
-    else
-      raise Ecto.NoResultsError, queryable: Room
-    end
-  end
-
-  @doc """
-  Creates a room.
-
-  ## Examples
-
-      iex> create_room(%{field: value})
-      {:ok, %Room{}}
-
-      iex> create_room(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def create_room(%Scope{} = scope, attrs) do
-    with {:ok, room = %Room{}} <-
-           %Room{}
-           |> Room.changeset(attrs, scope)
-           |> Repo.insert() do
-      broadcast(scope, {:created, room})
-      {:ok, room}
-    end
-  end
-
-  @doc """
-  Updates a room.
-
-  ## Examples
-
-      iex> update_room(room, %{field: new_value})
-      {:ok, %Room{}}
-
-      iex> update_room(room, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def update_room(%Scope{} = scope, %Room{} = room, attrs) do
-    if room.user_id == scope.user.id do
-      with {:ok, room = %Room{}} <-
-             room
-             |> Room.changeset(attrs, scope)
-             |> Repo.update() do
-        broadcast(scope, {:updated, room})
-        {:ok, room}
-      end
-    else
-      {:error, :unauthorized}
-    end
-  end
-
-  @doc """
-  Deletes a room.
-
-  ## Examples
-
-      iex> delete_room(room)
-      {:ok, %Room{}}
-
-      iex> delete_room(room)
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def delete_room(%Scope{} = scope, %Room{} = room) do
-    true = room.user_id == scope.user.id
-
-    with {:ok, room = %Room{}} <-
-           Repo.delete(room) do
-      broadcast(scope, {:deleted, room})
-      {:ok, room}
-    end
-  end
-
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking room changes.
-
-  ## Examples
-
-      iex> change_room(room)
-      %Ecto.Changeset{data: %Room{}}
-
-  """
-  def change_room(%Scope{} = scope, %Room{} = room, attrs \\ %{}) do
-    true = room.user_id == scope.user.id
-
-    Room.changeset(room, attrs, scope)
   end
 
   alias Emberchat.Chat.{Message, EmbeddingGenerator, SemanticSearch, Reaction}
@@ -206,36 +78,39 @@ defmodule Emberchat.Chat do
 
   def list_room_messages(_scope, room_id, opts \\ []) do
     include_replies = Keyword.get(opts, :include_replies, false)
-    
-    query = from(m in Message, 
-      where: m.room_id == ^room_id,
-      preload: [:user, :reactions, :pinned_by, parent_message: :user],
-      order_by: [asc: m.inserted_at]
-    )
-    
-    query = if include_replies do
-      query
-    else
-      from(m in query, where: is_nil(m.parent_message_id))
-    end
-    
+
+    query =
+      from(m in Message,
+        where: m.room_id == ^room_id,
+        preload: [:user, :reactions, :pinned_by, parent_message: :user],
+        order_by: [asc: m.inserted_at]
+      )
+
+    query =
+      if include_replies do
+        query
+      else
+        from(m in query, where: is_nil(m.parent_message_id))
+      end
+
     messages = Repo.all(query)
-    
+
     # Add reaction summaries to each message
     Enum.map(messages, fn message ->
       reactions = get_message_reactions(message.id)
       Map.put(message, :reaction_summary, reactions)
     end)
   end
-  
+
   def list_thread_messages(_scope, parent_message_id) do
-    messages = from(m in Message,
-      where: m.parent_message_id == ^parent_message_id,
-      preload: [:user, :reactions, :pinned_by, parent_message: :user],
-      order_by: [asc: m.inserted_at]
-    )
-    |> Repo.all()
-    
+    messages =
+      from(m in Message,
+        where: m.parent_message_id == ^parent_message_id,
+        preload: [:user, :reactions, :pinned_by, parent_message: :user],
+        order_by: [asc: m.inserted_at]
+      )
+      |> Repo.all()
+
     # Add reaction summaries to each message
     Enum.map(messages, fn message ->
       reactions = get_message_reactions(message.id)
@@ -283,10 +158,10 @@ defmodule Emberchat.Chat do
         if message.parent_message_id do
           update_thread_metadata(message.parent_message_id)
         end
-        
+
         # Generate embedding asynchronously to avoid blocking message creation
         Task.start(fn -> EmbeddingGenerator.generate_embedding_for_message(message) end)
-        
+
         message = Repo.preload(message, [:user, parent_message: :user])
         broadcast_message(scope, {:created, message})
         message
@@ -295,7 +170,7 @@ defmodule Emberchat.Chat do
       end
     end)
   end
-  
+
   defp update_thread_metadata(parent_message_id) do
     from(m in Message,
       where: m.id == ^parent_message_id,
@@ -330,7 +205,7 @@ defmodule Emberchat.Chat do
       if Map.has_key?(attrs, "content") or Map.has_key?(attrs, :content) do
         Task.start(fn -> EmbeddingGenerator.generate_embedding_for_message(updated_message) end)
       end
-      
+
       broadcast_message(scope, {:updated, updated_message})
       {:ok, updated_message}
     end
@@ -357,10 +232,10 @@ defmodule Emberchat.Chat do
         if deleted_message.parent_message_id do
           decrement_thread_metadata(deleted_message.parent_message_id)
         end
-        
+
         # Remove from vector table asynchronously
         Task.start(fn -> EmbeddingGenerator.remove_from_vector_table(deleted_message.id) end)
-        
+
         broadcast_message(scope, {:deleted, deleted_message})
         deleted_message
       else
@@ -368,7 +243,7 @@ defmodule Emberchat.Chat do
       end
     end)
   end
-  
+
   defp decrement_thread_metadata(parent_message_id) do
     from(m in Message,
       where: m.id == ^parent_message_id,
@@ -399,9 +274,9 @@ defmodule Emberchat.Chat do
 
   @doc """
   Search messages using semantic similarity and recency scoring.
-  
+
   ## Examples
-  
+
       iex> search_messages("machine learning", scope)
       {:ok, [%Message{}, ...]}
       
@@ -457,11 +332,11 @@ defmodule Emberchat.Chat do
   """
   def toggle_reaction(%Scope{} = scope, message_id, emoji) do
     user_id = scope.user.id
-    
+
     # Check if reaction already exists
-    existing_reaction = 
+    existing_reaction =
       Repo.get_by(Reaction, message_id: message_id, user_id: user_id, emoji: emoji)
-    
+
     if existing_reaction do
       # Remove the reaction
       {:ok, _} = Repo.delete(existing_reaction)
@@ -480,6 +355,7 @@ defmodule Emberchat.Chat do
         {:ok, reaction} ->
           broadcast_reaction_added(message_id, user_id, emoji)
           {:ok, reaction}
+
         {:error, changeset} ->
           {:error, changeset}
       end
@@ -529,6 +405,4 @@ defmodule Emberchat.Chat do
   def subscribe_reactions(message_id) do
     Phoenix.PubSub.subscribe(Emberchat.PubSub, "reactions:#{message_id}")
   end
-
-  
 end
