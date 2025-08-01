@@ -8,6 +8,11 @@ defmodule EmberchatWeb.ChatLive do
   alias Emberchat.Chat.Pinned
   alias EmberchatWeb.ChatLive.Pinned, as: PinnedHelpers
   alias EmberchatWeb.ChatLive.Room, as: RoomHelpers
+  alias EmberchatWeb.ChatLive.Messages, as: MessagesHelpers
+  alias EmberchatWeb.ChatLive.Search, as: SearchHelpers
+  alias EmberchatWeb.ChatLive.Threads, as: ThreadsHelpers
+  alias EmberchatWeb.ChatLive.Reactions, as: ReactionsHelpers
+  alias EmberchatWeb.ChatLive.Navigation, as: NavigationHelpers
 
   @impl true
   def mount(_params, _session, socket) do
@@ -129,412 +134,162 @@ defmodule EmberchatWeb.ChatLive do
     {:noreply, socket}
   end
 
+  # Delegate message events to MessagesHelpers
   @impl true
-  def handle_event("reply_to", %{"message_id" => message_id}, socket) do
-    message_id = String.to_integer(message_id)
-    replying_to = Enum.find(socket.assigns.messages, &(&1.id == message_id))
-
-    {:noreply, assign(socket, :replying_to, replying_to)}
-  end
+  def handle_event("reply_to", params, socket),
+    do: MessagesHelpers.handle_event("reply_to", params, socket)
 
   @impl true
-  def handle_event("cancel_reply", _params, socket) do
-    {:noreply, assign(socket, :replying_to, nil)}
-  end
+  def handle_event("cancel_reply", params, socket),
+    do: MessagesHelpers.handle_event("cancel_reply", params, socket)
 
   @impl true
-  def handle_event("toggle_drawer", _params, socket) do
-    new_drawer_state = !socket.assigns.drawer_open
+  def handle_event("update_draft", params, socket),
+    do: MessagesHelpers.handle_event("update_draft", params, socket)
 
-    # Store drawer state in process dictionary for persistence across navigation
-    Process.put(:drawer_open, new_drawer_state)
+  @impl true
+  def handle_event("send_message", params, socket),
+    do: MessagesHelpers.handle_event("send_message", params, socket)
 
-    {:noreply, assign(socket, :drawer_open, new_drawer_state)}
-  end
+  @impl true
+  def handle_event("find_similar", params, socket),
+    do: MessagesHelpers.handle_event("find_similar", params, socket)
+
+  # Delegate navigation events to NavigationHelpers
+  @impl true
+  def handle_event("toggle_drawer", params, socket),
+    do: NavigationHelpers.handle_event("toggle_drawer", params, socket)
+
+  @impl true
+  def handle_event("noop", params, socket),
+    do: NavigationHelpers.handle_event("noop", params, socket)
 
   # Delegate room events to RoomHelpers
+  @impl true
   def handle_event("show_new_room_modal", params, socket),
     do: RoomHelpers.handle_event("show_new_room_modal", params, socket)
 
+  @impl true
   def handle_event("show_edit_room_modal", params, socket),
     do: RoomHelpers.handle_event("show_edit_room_modal", params, socket)
 
+  @impl true
   def handle_event("close_room_modal", params, socket),
     do: RoomHelpers.handle_event("close_room_modal", params, socket)
 
+  @impl true
   def handle_event("validate_room", params, socket),
     do: RoomHelpers.handle_event("validate_room", params, socket)
 
+  @impl true
   def handle_event("select_emoji", params, socket),
     do: RoomHelpers.handle_event("select_emoji", params, socket)
 
+  @impl true
   def handle_event("save_room", params, socket),
     do: RoomHelpers.handle_event("save_room", params, socket)
 
+  # Delegate thread events to ThreadsHelpers
   @impl true
-  def handle_event("update_draft", %{"message" => %{"content" => draft}}, socket) do
-    room_id = socket.assigns.current_room.id
-    drafts = Map.put(socket.assigns.drafts, room_id, draft)
-    {:noreply, assign(socket, :drafts, drafts)}
-  end
+  def handle_event("show_thread", params, socket),
+    do: ThreadsHelpers.handle_event("show_thread", params, socket)
 
   @impl true
-  def handle_event("send_message", %{"message" => message_params}, socket) do
-    # Add parent_message_id if replying
-    message_params =
-      if socket.assigns.replying_to do
-        Map.put(message_params, "parent_message_id", socket.assigns.replying_to.id)
-      else
-        message_params
-      end
-
-    case Chat.create_message(socket.assigns.current_scope, message_params) do
-      {:ok, _message} ->
-        # Clear draft for this room after successful send
-        room_id = socket.assigns.current_room.id
-        drafts = Map.delete(socket.assigns.drafts, room_id)
-
-        {:noreply,
-         socket
-         |> assign(:new_message, %Message{room_id: socket.assigns.current_room.id})
-         |> assign(:replying_to, nil)
-         |> assign(:drafts, drafts)
-         |> put_flash(:info, "Message sent successfully")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :new_message, changeset)}
-    end
-  end
+  def handle_event("close_thread", params, socket),
+    do: ThreadsHelpers.handle_event("close_thread", params, socket)
 
   @impl true
-  def handle_event("show_thread", %{"message_id" => message_id}, socket) do
-    message_id = String.to_integer(message_id)
-    parent_message = Enum.find(socket.assigns.messages, &(&1.id == message_id))
-    thread_messages = Chat.list_thread_messages(socket.assigns.current_scope, message_id)
-
-    # Get thread draft if exists
-    thread_key = "thread_#{message_id}"
-    thread_draft = Map.get(socket.assigns.drafts, thread_key, "")
-
-    {:noreply,
-     socket
-     |> assign(:show_thread, true)
-     |> assign(:thread_parent_message, parent_message)
-     |> assign(:thread_messages, thread_messages)
-     |> assign(:thread_draft, thread_draft)}
-  end
+  def handle_event("update_thread_draft", params, socket),
+    do: ThreadsHelpers.handle_event("update_thread_draft", params, socket)
 
   @impl true
-  def handle_event("close_thread", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_thread, false)
-     |> assign(:thread_parent_message, nil)
-     |> assign(:thread_messages, [])
-     |> assign(:thread_draft, "")}
-  end
+  def handle_event("hide_thread", params, socket),
+    do: ThreadsHelpers.handle_event("hide_thread", params, socket)
 
   @impl true
-  def handle_event("update_thread_draft", %{"message" => %{"content" => draft}}, socket) do
-    if socket.assigns.thread_parent_message do
-      # Store thread draft with parent message ID as key
-      thread_key = "thread_#{socket.assigns.thread_parent_message.id}"
-      drafts = Map.put(socket.assigns.drafts, thread_key, draft)
-      {:noreply, assign(socket, :drafts, drafts)}
-    else
-      {:noreply, socket}
-    end
-  end
+  def handle_event("send_thread_message", params, socket),
+    do: ThreadsHelpers.handle_event("send_thread_message", params, socket)
+
+  # Delegate search events to SearchHelpers
+  @impl true
+  def handle_event("show_search_modal", params, socket),
+    do: SearchHelpers.handle_event("show_search_modal", params, socket)
 
   @impl true
-  def handle_event("hide_thread", _params, socket) do
-    # Hide thread but keep draft
-    {:noreply, assign(socket, :show_thread, false)}
-  end
+  def handle_event("close_search_modal", params, socket),
+    do: SearchHelpers.handle_event("close_search_modal", params, socket)
 
   @impl true
-  def handle_event("noop", _params, socket) do
-    # Do nothing - used to stop click propagation
-    {:noreply, socket}
-  end
+  def handle_event("search", params, socket),
+    do: SearchHelpers.handle_event("search", params, socket)
 
   @impl true
-  def handle_event("send_thread_message", %{"message" => message_params}, socket) do
-    case Chat.create_message(socket.assigns.current_scope, message_params) do
-      {:ok, _message} ->
-        # Clear thread draft after successful send
-        thread_key = "thread_#{socket.assigns.thread_parent_message.id}"
-        drafts = Map.delete(socket.assigns.drafts, thread_key)
-        {:noreply, socket |> assign(:drafts, drafts) |> assign(:thread_draft, "")}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to send message")}
-    end
-  end
+  def handle_event("search_with_filters", params, socket),
+    do: SearchHelpers.handle_event("search_with_filters", params, socket)
 
   @impl true
-  def handle_event("show_search_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_search_modal, true)
-     |> assign(:search_query, "")
-     |> assign(:search_results, [])
-     |> assign(:searching, false)
-     |> assign(:search_error, nil)
-     |> assign(:show_suggestions, false)
-     |> assign(:search_stats, nil)}
-  end
+  def handle_event("get_search_suggestions", params, socket),
+    do: SearchHelpers.handle_event("get_search_suggestions", params, socket)
 
   @impl true
-  def handle_event("close_search_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_search_modal, false)
-     |> assign(:search_query, "")
-     |> assign(:search_results, [])
-     |> assign(:searching, false)
-     |> assign(:search_error, nil)
-     |> assign(:show_suggestions, false)
-     |> assign(:search_stats, nil)}
-  end
+  def handle_event("select_search_suggestion", params, socket),
+    do: SearchHelpers.handle_event("select_search_suggestion", params, socket)
 
   @impl true
-  def handle_event("search", %{"query" => query}, socket) when byte_size(query) < 2 do
-    {:noreply,
-     socket
-     |> assign(:search_query, query)
-     |> assign(:search_results, [])
-     |> assign(:searching, false)
-     |> assign(:search_error, nil)
-     |> assign(:show_suggestions, false)}
-  end
+  def handle_event("clear_search", params, socket),
+    do: SearchHelpers.handle_event("clear_search", params, socket)
+
+  # Delegate keyboard shortcuts to NavigationHelpers
+  @impl true
+  def handle_event("keyboard_shortcut", params, socket),
+    do: NavigationHelpers.handle_event("keyboard_shortcut", params, socket)
+
+  # Delegate reaction events to ReactionsHelpers
+  @impl true
+  def handle_event("toggle_reaction", params, socket),
+    do: ReactionsHelpers.handle_event("toggle_reaction", params, socket)
 
   @impl true
-  def handle_event("search", %{"query" => query}, socket) do
-    {:noreply,
-     socket
-     |> assign(:search_query, query)
-     |> assign(:searching, true)
-     |> assign(:search_error, nil)
-     |> assign(:show_suggestions, false)
-     |> start_search()}
-  end
-
-  @impl true
-  def handle_event("search_with_filters", params, socket) do
-    query = params["query"] || socket.assigns.search_query
-
-    room_id =
-      case params["room_id"] do
-        "" -> nil
-        room_id -> String.to_integer(room_id)
-      end
-
-    similarity_weight = String.to_float(params["similarity_weight"] || "0.7")
-    recency_weight = String.to_float(params["recency_weight"] || "0.3")
-
-    {:noreply,
-     socket
-     |> assign(:search_query, query)
-     |> assign(:selected_search_room, room_id)
-     |> assign(:similarity_weight, similarity_weight)
-     |> assign(:recency_weight, recency_weight)
-     |> assign(:searching, true)
-     |> assign(:search_error, nil)
-     |> start_search()}
-  end
-
-  @impl true
-  def handle_event("get_search_suggestions", %{"key" => "Enter", "value" => query}, socket)
-      when byte_size(query) >= 2 do
-    # When Enter is pressed, trigger search instead of suggestions
-    handle_event("search", %{"query" => query}, socket)
-  end
-
-  def handle_event("get_search_suggestions", %{"value" => partial_query}, socket)
-      when byte_size(partial_query) >= 2 do
-    Task.start(fn ->
-      case Chat.get_search_suggestions(partial_query, socket.assigns.current_scope,
-             room_id: socket.assigns.selected_search_room
-           ) do
-        {:ok, suggestions} ->
-          send(self(), {:search_suggestions_ready, suggestions})
-
-        {:error, _reason} ->
-          send(self(), {:search_suggestions_ready, []})
-      end
-    end)
-
-    {:noreply, assign(socket, :show_suggestions, true)}
-  end
-
-  @impl true
-  def handle_event("get_search_suggestions", _params, socket) do
-    {:noreply, assign(socket, :show_suggestions, false)}
-  end
-
-  @impl true
-  def handle_event("select_search_suggestion", %{"suggestion" => suggestion}, socket) do
-    {:noreply,
-     socket
-     |> assign(:search_query, suggestion)
-     |> assign(:show_suggestions, false)
-     |> assign(:searching, true)
-     |> assign(:search_error, nil)
-     |> start_search()}
-  end
-
-  @impl true
-  def handle_event("clear_search", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:search_query, "")
-     |> assign(:search_results, [])
-     |> assign(:searching, false)
-     |> assign(:search_error, nil)
-     |> assign(:show_suggestions, false)
-     |> assign(:search_stats, nil)}
-  end
-
-  @impl true
-  def handle_event("keyboard_shortcut", %{"key" => "k", "ctrlKey" => true}, socket) do
-    # Ctrl+K opens search modal
-    handle_event("show_search_modal", %{}, socket)
-  end
-
-  @impl true
-  def handle_event("keyboard_shortcut", %{"key" => "k", "metaKey" => true}, socket) do
-    # Cmd+K opens search modal (for Mac)
-    handle_event("show_search_modal", %{}, socket)
-  end
-
-  @impl true
-  def handle_event("keyboard_shortcut", %{"key" => "Escape"}, socket) do
-    # ESC closes open modals/interfaces and focuses search
-    socket =
-      socket
-      |> assign(:show_search_modal, false)
-      |> assign(:show_room_modal, false)
-      |> assign(:show_thread, false)
-
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("keyboard_shortcut", _params, socket) do
-    # Ignore other keyboard shortcuts
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("toggle_reaction", %{"message_id" => message_id, "emoji" => emoji}, socket) do
-    message_id = String.to_integer(message_id)
-
-    case Chat.toggle_reaction(socket.assigns.current_scope, message_id, emoji) do
-      {:ok, :removed} ->
-        {:noreply, socket}
-
-      {:ok, _reaction} ->
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to add reaction")}
-    end
-  end
+  def handle_event("toggle_show_all_reactions", params, socket),
+    do: ReactionsHelpers.handle_event("toggle_show_all_reactions", params, socket)
 
   # Delegate pinning events to PinnedHelpers
+  @impl true
   def handle_event("toggle_pin", params, socket),
     do: PinnedHelpers.handle_event("toggle_pin", params, socket)
 
+  @impl true
   def handle_event("cancel_pin", params, socket),
     do: PinnedHelpers.handle_event("cancel_pin", params, socket)
 
+  @impl true
   def handle_event("confirm_pin", params, socket),
     do: PinnedHelpers.handle_event("confirm_pin", params, socket)
 
+  @impl true
   def handle_event("update_pin_slug", params, socket),
     do: PinnedHelpers.handle_event("update_pin_slug", params, socket)
 
+  @impl true
   def handle_event("scroll_to_pinned", params, socket),
     do: PinnedHelpers.handle_event("scroll_to_pinned", params, socket)
 
+  # Delegate search info messages to SearchHelpers
   @impl true
-  def handle_event("toggle_show_all_reactions", %{"message_id" => message_id}, socket) do
-    message_id = String.to_integer(message_id)
-
-    expanded_reactions =
-      if MapSet.member?(socket.assigns.expanded_reactions, message_id) do
-        MapSet.delete(socket.assigns.expanded_reactions, message_id)
-      else
-        MapSet.put(socket.assigns.expanded_reactions, message_id)
-      end
-
-    {:noreply, assign(socket, :expanded_reactions, expanded_reactions)}
-  end
+  def handle_info({:search_results_ready, results, stats}, socket),
+    do: SearchHelpers.handle_info({:search_results_ready, results, stats}, socket)
 
   @impl true
-  def handle_event("find_similar", %{"message_id" => message_id}, socket) do
-    message_id = String.to_integer(message_id)
-
-    Task.start(fn ->
-      # Get the message first
-      case Emberchat.Repo.get(Message, message_id) do
-        nil ->
-          send(self(), {:search_error, "Message not found"})
-
-        message ->
-          case Chat.find_similar_messages(message,
-                 limit: 10,
-                 room_id: socket.assigns.selected_search_room
-               ) do
-            {:ok, similar_messages} ->
-              send(self(), {:similar_search_results_ready, similar_messages, message})
-
-            {:error, reason} ->
-              send(self(), {:search_error, "Failed to find similar messages: #{inspect(reason)}"})
-          end
-      end
-    end)
-
-    {:noreply, assign(socket, :searching, true)}
-  end
+  def handle_info({:similar_search_results_ready, results, original_message}, socket),
+    do: SearchHelpers.handle_info({:similar_search_results_ready, results, original_message}, socket)
 
   @impl true
-  def handle_info({:search_results_ready, results, stats}, socket) do
-    {:noreply,
-     socket
-     |> assign(:search_results, results)
-     |> assign(:search_stats, stats)
-     |> assign(:searching, false)}
-  end
+  def handle_info({:search_suggestions_ready, suggestions}, socket),
+    do: SearchHelpers.handle_info({:search_suggestions_ready, suggestions}, socket)
 
   @impl true
-  def handle_info({:similar_search_results_ready, results, original_message}, socket) do
-    stats = %{
-      total_results: length(results),
-      search_type: "similar_to",
-      original_message: original_message
-    }
-
-    {:noreply,
-     socket
-     |> assign(:search_results, results)
-     |> assign(:search_stats, stats)
-     |> assign(:searching, false)}
-  end
-
-  @impl true
-  def handle_info({:search_suggestions_ready, suggestions}, socket) do
-    {:noreply, assign(socket, :suggestions, suggestions)}
-  end
-
-  @impl true
-  def handle_info({:search_error, error}, socket) do
-    {:noreply,
-     socket
-     |> assign(:search_error, error)
-     |> assign(:searching, false)}
-  end
+  def handle_info({:search_error, error}, socket),
+    do: SearchHelpers.handle_info({:search_error, error}, socket)
 
   @impl true
   def handle_info({:created, %Room{} = room}, socket) do
@@ -585,169 +340,32 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:current_room, current_room)}
   end
 
+  # Delegate reaction info messages to ReactionsHelpers
   @impl true
-  def handle_info({:reaction_added, %{message_id: message_id}}, socket) do
-    # Update the message's reaction summary
-    messages =
-      Enum.map(socket.assigns.messages, fn message ->
-        if message.id == message_id do
-          reactions = Chat.get_message_reactions(message_id)
-          Map.put(message, :reaction_summary, reactions)
-        else
-          message
-        end
-      end)
-
-    {:noreply, assign(socket, :messages, messages)}
-  end
+  def handle_info({:reaction_added, %{message_id: message_id}}, socket),
+    do: ReactionsHelpers.handle_info({:reaction_added, %{message_id: message_id}}, socket)
 
   @impl true
-  def handle_info({:reaction_removed, %{message_id: message_id}}, socket) do
-    # Update the message's reaction summary
-    messages =
-      Enum.map(socket.assigns.messages, fn message ->
-        if message.id == message_id do
-          reactions = Chat.get_message_reactions(message_id)
-          Map.put(message, :reaction_summary, reactions)
-        else
-          message
-        end
-      end)
+  def handle_info({:reaction_removed, %{message_id: message_id}}, socket),
+    do: ReactionsHelpers.handle_info({:reaction_removed, %{message_id: message_id}}, socket)
 
-    {:noreply, assign(socket, :messages, messages)}
-  end
+  # Delegate message info messages to MessagesHelpers
+  @impl true
+  def handle_info({:created, %Message{} = message}, socket),
+    do: MessagesHelpers.handle_info({:created, message}, socket)
 
   @impl true
-  def handle_info({:created, %Message{} = message}, socket) do
-    if socket.assigns.current_room && message.room_id == socket.assigns.current_room.id do
-      # If it's a reply, update the parent message's reply count and don't show in main chat
-      if message.parent_message_id do
-        # Update parent message reply count
-        messages =
-          Enum.map(socket.assigns.messages, fn m ->
-            if m.id == message.parent_message_id do
-              m
-              |> Map.put(:reply_count, (m.reply_count || 0) + 1)
-              |> Map.put(:last_reply_at, message.inserted_at)
-            else
-              m
-            end
-          end)
-
-        # If thread is open for this parent message, add to thread messages
-        socket =
-          if socket.assigns.thread_parent_message &&
-               socket.assigns.thread_parent_message.id == message.parent_message_id do
-            update(socket, :thread_messages, &(&1 ++ [message]))
-          else
-            socket
-          end
-
-        {:noreply, assign(socket, :messages, messages)}
-      else
-        # It's a top-level message, add to main chat
-        # Subscribe to reactions for the new message
-        if connected?(socket) do
-          Chat.subscribe_reactions(message.id)
-        end
-
-        # Add the message with empty reaction summary
-        message_with_reactions = Map.put(message, :reaction_summary, [])
-
-        {:noreply, update(socket, :messages, &(&1 ++ [message_with_reactions]))}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
+  def handle_info({:updated, %Message{} = message}, socket),
+    do: MessagesHelpers.handle_info({:updated, message}, socket)
 
   @impl true
-  def handle_info({:updated, %Message{} = message}, socket) do
-    if socket.assigns.current_room && message.room_id == socket.assigns.current_room.id do
-      messages =
-        Enum.map(socket.assigns.messages, fn m ->
-          if m.id == message.id, do: message, else: m
-        end)
-
-      # Update pinned messages list if the message's pin status changed
-      old_message = Enum.find(socket.assigns.messages, &(&1.id == message.id))
-
-      pinned_messages =
-        if old_message && message.is_pinned != old_message.is_pinned do
-          Pinned.list_pinned_messages(
-            socket.assigns.current_scope,
-            socket.assigns.current_room.id
-          )
-        else
-          socket.assigns.pinned_messages
-        end
-
-      {:noreply,
-       socket
-       |> assign(:messages, messages)
-       |> assign(:pinned_messages, pinned_messages)}
-    else
-      {:noreply, socket}
-    end
-  end
+  def handle_info({:deleted, %Message{} = message}, socket),
+    do: MessagesHelpers.handle_info({:deleted, message}, socket)
 
   @impl true
-  def handle_info(:clear_highlight, socket) do
-    {:noreply, assign(socket, :highlight_message_id, nil)}
-  end
+  def handle_info(:clear_highlight, socket),
+    do: MessagesHelpers.handle_info(:clear_highlight, socket)
 
-  @impl true
-  def handle_info({:deleted, %Message{} = message}, socket) do
-    if socket.assigns.current_room && message.room_id == socket.assigns.current_room.id do
-      messages = Enum.reject(socket.assigns.messages, &(&1.id == message.id))
-      {:noreply, assign(socket, :messages, messages)}
-    else
-      {:noreply, socket}
-    end
-  end
-
-
-  defp start_search(socket) do
-    query = socket.assigns.search_query
-    scope = socket.assigns.current_scope
-    room_id = socket.assigns.selected_search_room
-    similarity_weight = socket.assigns.similarity_weight
-    recency_weight = socket.assigns.recency_weight
-
-    parent = self()
-
-    Task.start(fn ->
-      start_time = System.monotonic_time(:millisecond)
-
-      case Chat.search_messages(query, scope,
-             room_id: room_id,
-             limit: 20,
-             similarity_weight: similarity_weight,
-             recency_weight: recency_weight
-           ) do
-        {:ok, results} ->
-          end_time = System.monotonic_time(:millisecond)
-          search_time = end_time - start_time
-
-          stats = %{
-            total_results: length(results),
-            search_time_ms: search_time,
-            search_type: "semantic",
-            query: query,
-            room_filter: room_id,
-            similarity_weight: similarity_weight,
-            recency_weight: recency_weight
-          }
-
-          send(parent, {:search_results_ready, results, stats})
-
-        {:error, reason} ->
-          send(parent, {:search_error, "Search failed: #{inspect(reason)}"})
-      end
-    end)
-
-    socket
-  end
 
   @impl true
   def render(assigns) do
