@@ -77,28 +77,24 @@ defmodule EmberchatWeb.ChatLive.Messages do
 
   def handle_info({:created, %Message{} = message}, socket) do
     if socket.assigns.current_room && message.room_id == socket.assigns.current_room.id do
-      # If it's a reply, update the parent message's reply count and don't show in main chat
+      # If it's a reply, update the parent message's thread and don't show in main chat
       if message.parent_message_id do
-        # Update parent message reply count
+        # Update parent message reply count and add to thread messages
         messages =
           Enum.map(socket.assigns.messages, fn m ->
             if m.id == message.parent_message_id do
+              # Add the new message to thread_messages
+              current_thread_messages = Map.get(m, :thread_messages, [])
+              message_with_reactions = Map.put(message, :reaction_summary, [])
+              
               m
               |> Map.put(:reply_count, (m.reply_count || 0) + 1)
               |> Map.put(:last_reply_at, message.inserted_at)
+              |> Map.put(:thread_messages, current_thread_messages ++ [message_with_reactions])
             else
               m
             end
           end)
-
-        # If thread is open for this parent message, add to thread messages
-        socket =
-          if socket.assigns.thread_parent_message &&
-               socket.assigns.thread_parent_message.id == message.parent_message_id do
-            update(socket, :thread_messages, &(&1 ++ [message]))
-          else
-            socket
-          end
 
         {:noreply, assign(socket, :messages, messages)}
       else
@@ -108,8 +104,11 @@ defmodule EmberchatWeb.ChatLive.Messages do
           Chat.subscribe_reactions(message.id)
         end
 
-        # Add the message with empty reaction summary
-        message_with_reactions = Map.put(message, :reaction_summary, [])
+        # Add the message with empty reaction summary and thread messages
+        message_with_reactions = 
+          message
+          |> Map.put(:reaction_summary, [])
+          |> Map.put(:thread_messages, [])
 
         {:noreply, update(socket, :messages, &(&1 ++ [message_with_reactions]))}
       end

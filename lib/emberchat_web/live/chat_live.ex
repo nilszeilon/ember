@@ -58,10 +58,6 @@ defmodule EmberchatWeb.ChatLive do
        "🍕",
        "☕"
      ])
-     |> assign(:show_thread, false)
-     |> assign(:thread_parent_message, nil)
-     |> assign(:thread_messages, [])
-     |> assign(:thread_draft, "")
      |> assign(:drafts, %{})
      |> assign(:highlight_message_id, nil)
      |> assign(:show_search_modal, false)
@@ -192,26 +188,6 @@ defmodule EmberchatWeb.ChatLive do
   def handle_event("save_room", params, socket),
     do: RoomHelpers.handle_event("save_room", params, socket)
 
-  # Delegate thread events to ThreadsHelpers
-  @impl true
-  def handle_event("show_thread", params, socket),
-    do: ThreadsHelpers.handle_event("show_thread", params, socket)
-
-  @impl true
-  def handle_event("close_thread", params, socket),
-    do: ThreadsHelpers.handle_event("close_thread", params, socket)
-
-  @impl true
-  def handle_event("update_thread_draft", params, socket),
-    do: ThreadsHelpers.handle_event("update_thread_draft", params, socket)
-
-  @impl true
-  def handle_event("hide_thread", params, socket),
-    do: ThreadsHelpers.handle_event("hide_thread", params, socket)
-
-  @impl true
-  def handle_event("send_thread_message", params, socket),
-    do: ThreadsHelpers.handle_event("send_thread_message", params, socket)
 
   # Delegate search events to SearchHelpers
   @impl true
@@ -401,7 +377,6 @@ defmodule EmberchatWeb.ChatLive do
             class="flex-1 overflow-y-auto p-6 min-h-0"
             id="messages-container"
             phx-hook="MessageScroll"
-            phx-click="hide_thread"
           >
             <!-- Pinned Messages Section -->
             <%= if @pinned_messages != [] do %>
@@ -509,19 +484,6 @@ defmodule EmberchatWeb.ChatLive do
         </div>
       <% end %>
       
-    <!-- Thread View -->
-      <.thread_view
-        show={@show_thread}
-        parent_message={@thread_parent_message}
-        thread_messages={@thread_messages}
-        room_id={@current_room && @current_room.id}
-        parent_message_id={@thread_parent_message && @thread_parent_message.id}
-        draft={
-          if @thread_parent_message,
-            do: Map.get(@drafts, "thread_#{@thread_parent_message.id}", ""),
-            else: ""
-        }
-      />
     </div>
     """
   end

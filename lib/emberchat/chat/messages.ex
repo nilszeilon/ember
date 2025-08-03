@@ -72,10 +72,20 @@ defmodule Emberchat.Chat.Messages do
 
     messages = Repo.all(query)
 
-    # Add reaction summaries to each message
+    # Add reaction summaries and thread messages to each message
     Enum.map(messages, fn message ->
       reactions = Reactions.get_message_reactions(message.id)
-      Map.put(message, :reaction_summary, reactions)
+      
+      # If this is a top-level message and has replies, fetch them
+      thread_messages = if is_nil(message.parent_message_id) and message.reply_count > 0 do
+        list_thread_messages(nil, message.id)
+      else
+        []
+      end
+      
+      message
+      |> Map.put(:reaction_summary, reactions)
+      |> Map.put(:thread_messages, thread_messages)
     end)
   end
 
