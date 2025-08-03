@@ -72,13 +72,7 @@ const hooks = {
           activeElement.contentEditable === 'true'
         )
 
-        if (e.key === 's') {
-          e.preventDefault()
-          this.pushEvent("keyboard_shortcut", {
-            key: 's',
-          })
-          return
-        }
+        
         
         // Ctrl+J to move to next room
         if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
@@ -112,6 +106,10 @@ const hooks = {
           case '?':
             e.preventDefault()
             this.pushEvent("keyboard_shortcut", { key: '?' })
+            break
+          case 's':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: 's' })
             break
           case 'j':
             e.preventDefault()
