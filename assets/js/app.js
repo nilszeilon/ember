@@ -73,7 +73,7 @@ const hooks = {
         )
         
         // Ctrl+J to move to next room
-        if (e.ctrlKey || e.metaKey && e.key === 'j') {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
           e.preventDefault()
           this.pushEvent("keyboard_shortcut", {
             key: 'j',
@@ -83,7 +83,7 @@ const hooks = {
         }
         
         // Ctrl+K to move to previous room
-        if (e.ctrlKey || e.metaKey && e.key === 'k') {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
           e.preventDefault()
           this.pushEvent("keyboard_shortcut", {
             key: 'k',
