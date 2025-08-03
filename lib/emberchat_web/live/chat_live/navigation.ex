@@ -21,7 +21,6 @@ defmodule EmberchatWeb.ChatLive.Navigation do
   end
 
   def handle_event("keyboard_shortcut", %{"key" => "Escape"}, socket) do
-    # ESC closes open modals/interfaces and focuses search
     socket =
       socket
       |> assign(:show_search_modal, false)
@@ -69,6 +68,10 @@ defmodule EmberchatWeb.ChatLive.Navigation do
     {:noreply, socket}
   end
 
+  def handle_event("keyboard_shortcut", %{"key" => "n"}, socket) do
+    {:noreply, Phoenix.LiveView.push_event(socket, "focus_message_input", %{})}
+  end
+
   def handle_event("keyboard_shortcut", %{"key" => "r"}, socket) do
     # Reply to selected message
     case get_selected_message(socket) do
@@ -77,11 +80,18 @@ defmodule EmberchatWeb.ChatLive.Navigation do
 
       message ->
         # Trigger reply action for the selected message
-        EmberchatWeb.ChatLive.Messages.handle_event(
-          "reply_to_message",
-          %{"message_id" => message.id},
-          socket
-        )
+        case EmberchatWeb.ChatLive.Messages.handle_event(
+               "reply_to",
+               %{"message_id" => to_string(message.id)},
+               socket
+             ) do
+          {:noreply, updated_socket} ->
+            # Push focus event after successfully setting up reply
+            {:noreply, Phoenix.LiveView.push_event(updated_socket, "focus_message_input", %{})}
+
+          other ->
+            other
+        end
     end
   end
 
@@ -89,11 +99,9 @@ defmodule EmberchatWeb.ChatLive.Navigation do
     # Like/React to selected message
     case get_selected_message(socket) do
       nil ->
-        IO.puts("no message fool")
         {:noreply, socket}
 
       message ->
-        IO.inspect(message)
         # Toggle thumbs up reaction on selected message
         EmberchatWeb.ChatLive.Reactions.handle_event(
           "toggle_reaction",
@@ -114,7 +122,7 @@ defmodule EmberchatWeb.ChatLive.Navigation do
           # Unpin the message
           EmberchatWeb.ChatLive.Pinned.handle_event(
             "unpin_message",
-            %{"message_id" => message.id},
+            %{"message_id" => to_string(message.id)},
             socket
           )
         else

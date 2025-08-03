@@ -112,6 +112,10 @@ const hooks = {
             e.preventDefault()
             this.pushEvent("keyboard_shortcut", { key: 'p' })
             break
+          case 'n':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: 'n' })
+            break
           case 'Escape':
             // Don't prevent default to allow normal ESC behavior
             this.pushEvent("keyboard_shortcut", { key: 'Escape' })
@@ -174,6 +178,14 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
+
+// Handle focus_message_input event from server
+window.addEventListener("phx:focus_message_input", () => {
+  const messageInput = document.querySelector('input[name="message[content]"]')
+  if (messageInput) {
+    messageInput.focus()
+  }
+})
 
 // Add scroll to message functionality
 window.addEventListener("scroll-to-message", (e) => {
