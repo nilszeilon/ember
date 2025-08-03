@@ -71,6 +71,14 @@ const hooks = {
           activeElement.tagName === 'TEXTAREA' ||
           activeElement.contentEditable === 'true'
         )
+
+        if (e.key === 's') {
+          e.preventDefault()
+          this.pushEvent("keyboard_shortcut", {
+            key: 's',
+          })
+          return
+        }
         
         // Ctrl+J to move to next room
         if ((e.ctrlKey || e.metaKey) && e.key === 'j') {

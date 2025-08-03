@@ -58,6 +58,7 @@ defmodule EmberchatWeb.ChatComponents do
     assigns = assign_new(assigns, :highlighted, fn -> false end)
     assigns = assign_new(assigns, :current_user_id, fn -> nil end)
     assigns = assign_new(assigns, :show_all_reactions, fn -> false end)
+    assigns = assign_new(assigns, :thread_expanded, fn -> false end)
     
     ~H"""
     <div id={"message-#{@message.id}"}>
@@ -131,57 +132,76 @@ defmodule EmberchatWeb.ChatComponents do
         show_all={@show_all_reactions}
       />
       
-      <%= if @message.reply_count > 0 and length(Map.get(@message, :thread_messages, [])) > 0 do %>
-        <div class="mt-3 ml-14">
-          <div class="pl-4 border-l-2 border-base-300 space-y-3">
-            <%= for thread_message <- Map.get(@message, :thread_messages, []) do %>
-              <div class="flex gap-3">
-                <div class="flex-shrink-0">
-                  <div class="avatar avatar-placeholder">
-                    <div class="w-8 rounded-full bg-neutral text-primary-content placeholder">
-                      <span class="text-sm">
-                        {String.first(thread_message.user.username || thread_message.user.email) |> String.upcase()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="flex-1 min-w-0">
-                  <div class="mb-1">
-                    <span class="font-medium text-sm">{thread_message.user.username}</span>
-                    <time class="text-xs opacity-50 ml-2">
-                      {Calendar.strftime(thread_message.inserted_at, "%I:%M %p")}
-                    </time>
-                  </div>
-                  
-                  <div class="inline-block">
-                    <div class="bg-base-200 text-base-content rounded-2xl px-4 py-2 group relative transition-all duration-200">
-                      <span class="break-words text-sm">{thread_message.content}</span>
-                      <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        <.reaction_picker message_id={thread_message.id} />
-                        <button
-                          class="btn btn-circle btn-ghost btn-xs"
-                          phx-click="reply_to"
-                          phx-value-message_id={@message.id}
-                          title="Reply to this thread"
-                        >
-                          <.icon name="hero-arrow-uturn-left" class="h-3 w-3" />
-                        </button>
+      <%= if @message.reply_count > 0 do %>
+        <div class="mt-2 ml-14">
+          <button
+            phx-click="toggle_thread"
+            phx-value-message_id={@message.id}
+            class="btn btn-xs btn-ghost gap-1 text-primary hover:bg-primary/10"
+          >
+            <.icon name={if @thread_expanded, do: "hero-chevron-down", else: "hero-chevron-right"} class="h-3 w-3" />
+            <.icon name="hero-chat-bubble-left-ellipsis" class="h-3 w-3" />
+            <span>{@message.reply_count} {if @message.reply_count == 1, do: "reply", else: "replies"}</span>
+            <%= if @message.last_reply_at do %>
+              <span class="text-xs opacity-70">
+                · {Calendar.strftime(@message.last_reply_at, "%I:%M %p")}
+              </span>
+            <% end %>
+          </button>
+        </div>
+
+        <%= if @thread_expanded and length(Map.get(@message, :thread_messages, [])) > 0 do %>
+          <div class="mt-3 ml-14">
+            <div class="pl-4 border-l-2 border-base-300 space-y-3">
+              <%= for thread_message <- Map.get(@message, :thread_messages, []) do %>
+                <div class="flex gap-3">
+                  <div class="flex-shrink-0">
+                    <div class="avatar avatar-placeholder">
+                      <div class="w-8 rounded-full bg-neutral text-primary-content placeholder">
+                        <span class="text-sm">
+                          {String.first(thread_message.user.username || thread_message.user.email) |> String.upcase()}
+                        </span>
                       </div>
                     </div>
                   </div>
                   
-                  <.message_reactions 
-                    reactions={Map.get(thread_message, :reaction_summary, [])} 
-                    message_id={thread_message.id}
-                    current_user_id={@current_user_id}
-                    show_all={false}
-                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="mb-1">
+                      <span class="font-medium text-sm">{thread_message.user.username}</span>
+                      <time class="text-xs opacity-50 ml-2">
+                        {Calendar.strftime(thread_message.inserted_at, "%I:%M %p")}
+                      </time>
+                    </div>
+                    
+                    <div class="inline-block">
+                      <div class="bg-base-200 text-base-content rounded-2xl px-4 py-2 group relative transition-all duration-200">
+                        <span class="break-words text-sm">{thread_message.content}</span>
+                        <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          <.reaction_picker message_id={thread_message.id} />
+                          <button
+                            class="btn btn-circle btn-ghost btn-xs"
+                            phx-click="reply_to"
+                            phx-value-message_id={@message.id}
+                            title="Reply to this thread"
+                          >
+                            <.icon name="hero-arrow-uturn-left" class="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <.message_reactions 
+                      reactions={Map.get(thread_message, :reaction_summary, [])} 
+                      message_id={thread_message.id}
+                      current_user_id={@current_user_id}
+                      show_all={false}
+                    />
+                  </div>
                 </div>
-              </div>
-            <% end %>
+              <% end %>
+            </div>
           </div>
-        </div>
+        <% end %>
       <% end %>
     </div>
     """
@@ -987,6 +1007,10 @@ defmodule EmberchatWeb.ChatComponents do
               <div class="flex items-center justify-between p-2 rounded bg-base-200">
                 <span class="text-sm">Show this help</span>
                 <kbd class="kbd kbd-sm">?</kbd>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Toggle thread (selected message)</span>
+                <kbd class="kbd kbd-sm">s</kbd>
               </div>
             </div>
           </div>

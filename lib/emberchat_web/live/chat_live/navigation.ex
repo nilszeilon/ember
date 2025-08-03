@@ -31,7 +31,6 @@ defmodule EmberchatWeb.ChatLive.Navigation do
       socket
       |> assign(:show_search_modal, false)
       |> assign(:show_room_modal, false)
-      |> assign(:show_thread, false)
       |> assign(:show_keyboard_shortcuts, false)
 
     {:noreply, socket}
@@ -147,6 +146,34 @@ defmodule EmberchatWeb.ChatLive.Navigation do
   def handle_event("keyboard_shortcut", %{"key" => "n"}, socket) do
     # Focus on new message input
     {:noreply, Phoenix.LiveView.push_event(socket, "focus_message_input", %{})}
+  end
+
+  def handle_event("keyboard_shortcut", %{"key" => "s"}, socket) do
+    # Toggle thread for selected message
+
+    case get_selected_message(socket) do
+      nil ->
+        {:noreply, socket}
+
+      message ->
+        if message.reply_count > 0 do
+          # Toggle thread for this message
+          expanded_threads = socket.assigns.expanded_threads
+          is_expanded = MapSet.member?(expanded_threads, message.id)
+
+          new_expanded_threads =
+            if is_expanded do
+              MapSet.delete(expanded_threads, message.id)
+            else
+              MapSet.put(expanded_threads, message.id)
+            end
+
+          {:noreply, assign(socket, :expanded_threads, new_expanded_threads)}
+        else
+          IO.puts("Message has no replies, ignoring")
+          {:noreply, socket}
+        end
+    end
   end
 
   def handle_event("keyboard_shortcut", _params, socket) do

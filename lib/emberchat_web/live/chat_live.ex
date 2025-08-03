@@ -60,6 +60,7 @@ defmodule EmberchatWeb.ChatLive do
      ])
      |> assign(:drafts, %{})
      |> assign(:highlight_message_id, nil)
+     |> assign(:expanded_threads, MapSet.new())
      |> assign(:show_search_modal, false)
      |> assign(:search_query, "")
      |> assign(:search_results, [])
@@ -226,6 +227,21 @@ defmodule EmberchatWeb.ChatLive do
   @impl true
   def handle_event("highlight_message", %{"message_id" => message_id}, socket) do
     {:noreply, assign(socket, :highlight_message_id, to_string(message_id))}
+  end
+
+  @impl true
+  def handle_event("toggle_thread", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    expanded_threads = socket.assigns.expanded_threads
+    
+    new_expanded_threads = 
+      if MapSet.member?(expanded_threads, message_id) do
+        MapSet.delete(expanded_threads, message_id)
+      else
+        MapSet.put(expanded_threads, message_id)
+      end
+    
+    {:noreply, assign(socket, :expanded_threads, new_expanded_threads)}
   end
 
   # Delegate reaction events to ReactionsHelpers
@@ -412,6 +428,7 @@ defmodule EmberchatWeb.ChatLive do
                   }
                   current_user_id={@current_scope.user.id}
                   show_all_reactions={MapSet.member?(@expanded_reactions, message.id)}
+                  thread_expanded={MapSet.member?(@expanded_threads, message.id)}
                 />
               <% end %>
             </div>
