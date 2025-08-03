@@ -1,5 +1,6 @@
 defmodule EmberchatWeb.ChatLive.Navigation do
   import Phoenix.Component, only: [assign: 3]
+  use Phoenix.VerifiedRoutes, endpoint: EmberchatWeb.Endpoint, router: EmberchatWeb.Router
 
   def handle_event("toggle_drawer", _params, socket) do
     new_drawer_state = !socket.assigns.drawer_open
@@ -10,14 +11,19 @@ defmodule EmberchatWeb.ChatLive.Navigation do
     {:noreply, assign(socket, :drawer_open, new_drawer_state)}
   end
 
-  def handle_event("keyboard_shortcut", %{"key" => "k", "ctrlKey" => true}, socket) do
-    # Ctrl+K opens search modal
+  def handle_event("keyboard_shortcut", %{"key" => "/"}, socket) do
+    # / opens search modal
     EmberchatWeb.ChatLive.Search.handle_event("show_search_modal", %{}, socket)
   end
 
-  def handle_event("keyboard_shortcut", %{"key" => "k", "metaKey" => true}, socket) do
-    # Cmd+K opens search modal (for Mac)
-    EmberchatWeb.ChatLive.Search.handle_event("show_search_modal", %{}, socket)
+  def handle_event("keyboard_shortcut", %{"key" => "j", "ctrlKey" => true}, socket) do
+    # Ctrl+J moves to next room
+    navigate_to_next_room(socket)
+  end
+
+  def handle_event("keyboard_shortcut", %{"key" => "k", "ctrlKey" => true}, socket) do
+    # Ctrl+K moves to previous room
+    navigate_to_previous_room(socket)
   end
 
   def handle_event("keyboard_shortcut", %{"key" => "Escape"}, socket) do
@@ -152,6 +158,83 @@ defmodule EmberchatWeb.ChatLive.Navigation do
     {:noreply, assign(socket, :show_keyboard_shortcuts, false)}
   end
 
+  def handle_event("noop", _params, socket) do
+    # Do nothing - used to stop click propagation
+    {:noreply, socket}
+  end
+
+  defp navigate_to_next_room(socket) do
+    rooms = Map.get(socket.assigns, :rooms, [])
+    current_room = Map.get(socket.assigns, :current_room)
+
+    case {rooms, current_room} do
+      {[], _} ->
+        {:noreply, socket}
+
+      {[_ | _] = rooms, nil} ->
+        # No current room, navigate to first room
+        first_room = hd(rooms)
+        {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{first_room.id}")}
+
+      {rooms, current_room} ->
+        # Find current room index
+        current_index = Enum.find_index(rooms, fn room -> room.id == current_room.id end)
+
+        case current_index do
+          nil ->
+            # Current room not found in list, navigate to first room
+            first_room = hd(rooms)
+            {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{first_room.id}")}
+
+          index when index < length(rooms) - 1 ->
+            # Navigate to next room
+            next_room = Enum.at(rooms, index + 1)
+            {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{next_room.id}")}
+
+          _ ->
+            # Already at last room, wrap to first
+            first_room = hd(rooms)
+            {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{first_room.id}")}
+        end
+    end
+  end
+
+  defp navigate_to_previous_room(socket) do
+    rooms = Map.get(socket.assigns, :rooms, [])
+    current_room = Map.get(socket.assigns, :current_room)
+
+    case {rooms, current_room} do
+      {[], _} ->
+        {:noreply, socket}
+
+      {[_ | _] = rooms, nil} ->
+        # No current room, navigate to last room
+        last_room = List.last(rooms)
+        {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{last_room.id}")}
+
+      {rooms, current_room} ->
+        # Find current room index
+        current_index = Enum.find_index(rooms, fn room -> room.id == current_room.id end)
+
+        case current_index do
+          nil ->
+            # Current room not found in list, navigate to last room
+            last_room = List.last(rooms)
+            {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{last_room.id}")}
+
+          0 ->
+            # Already at first room, wrap to last
+            last_room = List.last(rooms)
+            {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{last_room.id}")}
+
+          index ->
+            # Navigate to previous room
+            prev_room = Enum.at(rooms, index - 1)
+            {:noreply, Phoenix.LiveView.push_navigate(socket, to: ~p"/#{prev_room.id}")}
+        end
+    end
+  end
+
   # Helper functions
   defp get_selected_message(socket) do
     index = Map.get(socket.assigns, :selected_message_index, -1)
@@ -176,10 +259,5 @@ defmodule EmberchatWeb.ChatLive.Navigation do
     else
       socket
     end
-  end
-
-  def handle_event("noop", _params, socket) do
-    # Do nothing - used to stop click propagation
-    {:noreply, socket}
   end
 end

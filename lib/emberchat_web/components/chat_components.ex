@@ -927,8 +927,20 @@ defmodule EmberchatWeb.ChatComponents do
               </div>
               <div class="flex items-center justify-between p-2 rounded bg-base-200">
                 <span class="text-sm">Search</span>
+                <kbd class="kbd kbd-sm">/</kbd>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Next room</span>
                 <div class="flex gap-1">
-                  <kbd class="kbd kbd-sm">⌘</kbd>
+                  <kbd class="kbd kbd-sm">Ctrl</kbd>
+                  <span class="text-xs self-center">+</span>
+                  <kbd class="kbd kbd-sm">j</kbd>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-base-200">
+                <span class="text-sm">Previous room</span>
+                <div class="flex gap-1">
+                  <kbd class="kbd kbd-sm">Ctrl</kbd>
                   <span class="text-xs self-center">+</span>
                   <kbd class="kbd kbd-sm">k</kbd>
                 </div>

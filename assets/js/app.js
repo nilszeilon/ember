@@ -72,13 +72,22 @@ const hooks = {
           activeElement.contentEditable === 'true'
         )
         
-        // Ctrl+K or Cmd+K to open search (works even when typing)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        // Ctrl+J to move to next room
+        if (e.ctrlKey || e.metaKey && e.key === 'j') {
           e.preventDefault()
           this.pushEvent("keyboard_shortcut", {
-            key: e.key,
-            ctrlKey: e.ctrlKey,
-            metaKey: e.metaKey
+            key: 'j',
+            ctrlKey: true
+          })
+          return
+        }
+        
+        // Ctrl+K to move to previous room
+        if (e.ctrlKey || e.metaKey && e.key === 'k') {
+          e.preventDefault()
+          this.pushEvent("keyboard_shortcut", {
+            key: 'k',
+            ctrlKey: true
           })
           return
         }
@@ -88,6 +97,10 @@ const hooks = {
         
         // Navigation and action shortcuts
         switch(e.key) {
+          case '/':
+            e.preventDefault()
+            this.pushEvent("keyboard_shortcut", { key: '/' })
+            break
           case '?':
             e.preventDefault()
             this.pushEvent("keyboard_shortcut", { key: '?' })
