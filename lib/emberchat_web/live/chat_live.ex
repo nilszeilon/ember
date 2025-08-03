@@ -393,6 +393,7 @@ defmodule EmberchatWeb.ChatLive do
             class="flex-1 overflow-y-auto p-6 min-h-0"
             id="messages-container"
             phx-hook="MessageScroll"
+            {if @highlight_message_id, do: [{"data-highlight", @highlight_message_id}], else: []}
           >
             <!-- Pinned Messages Section -->
             <%= if @pinned_messages != [] do %>

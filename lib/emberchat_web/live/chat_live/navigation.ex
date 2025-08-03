@@ -48,8 +48,6 @@ defmodule EmberchatWeb.ChatLive.Navigation do
 
     new_index = min(selected_index + 1, length(messages) - 1)
 
-    IO.puts(new_index)
-
     socket =
       socket
       |> assign(:selected_message_index, new_index)
@@ -279,6 +277,9 @@ defmodule EmberchatWeb.ChatLive.Navigation do
       message = Enum.at(messages, index)
 
       if message do
+        # Update the highlighted message (no auto-clear for j/k navigation)
+        socket = assign(socket, :highlight_message_id, to_string(message.id))
+        
         Phoenix.LiveView.push_event(socket, "scroll_to_message", %{message_id: message.id})
       else
         socket
