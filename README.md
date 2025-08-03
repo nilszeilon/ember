@@ -5,24 +5,24 @@
 Ember is an open-source alternative mainstream chat apps like slack or discord. 
 
 ## Features
-- [x] chat interface, rooms, threads and instant messages
-- [x] search, search for messages across rooms
+- [x] chat with rooms and threads
+- [x] search for messages
 - [x] emoji's & reactions
 - [x] pin messages
+- [x] keyboard shortcuts with vim motions
 
-## TODO things
-- [ ] design improvements
-- [ ] support multi media, images, video, gif's, audio
-- [ ] best search experience in the world
-- [ ] notifications, tag users or set up custom
-- [ ] channel memberships, personal channels and group channels
-- [ ] team note taking system
-- [ ] easy to share auth system with another app, like add community-chat should be a nobrainer
+## TODO
+- [ ] read messages state / jump to new
+- [ ] multi-media / img / gifs / audio (?)
+- [ ] auth alternatives / connect with existing apps
+- [ ] improve search
+- [ ] room whiteboard / tldraw (?)
+- [ ] personal rooms / private rooms with invite 
 
-## TODO things that are important
-- [ ] vim like nav
-- [ ] deploy guides (dead simple or bust)
-- [ ] email providers
+## TODO NEED
+- [ ] notifications / tag people
+- [ ] onboarding / guides how to deploy
+
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
