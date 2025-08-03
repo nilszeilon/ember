@@ -4,10 +4,11 @@ defmodule EmberchatWeb.ChatLive.Room do
   import Phoenix.Component
 
   alias Emberchat.Chat.Room
+  alias Emberchat.Chat
 
   def handle_event("show_new_room_modal", _params, socket) do
     room = %Room{user_id: socket.assigns.current_scope.user.id}
-    changeset = Room.change_room(socket.assigns.current_scope, room)
+    changeset = Chat.change_room(socket.assigns.current_scope, room)
 
     {:noreply,
      socket
@@ -19,10 +20,10 @@ defmodule EmberchatWeb.ChatLive.Room do
   end
 
   def handle_event("show_edit_room_modal", %{"room_id" => room_id}, socket) do
-    room = Room.get_room!(socket.assigns.current_scope, room_id)
+    room = Chat.get_room!(socket.assigns.current_scope, room_id)
 
     try do
-      changeset = Room.change_room(socket.assigns.current_scope, room)
+      changeset = Chat.change_room(socket.assigns.current_scope, room)
 
       {:noreply,
        socket
@@ -49,7 +50,7 @@ defmodule EmberchatWeb.ChatLive.Room do
 
   def handle_event("validate_room", %{"room" => room_params}, socket) do
     changeset =
-      Room.change_room(socket.assigns.current_scope, socket.assigns.editing_room, room_params)
+      Chat.change_room(socket.assigns.current_scope, socket.assigns.editing_room, room_params)
 
     {:noreply, assign(socket, :room_form, to_form(changeset, action: :validate))}
   end
@@ -64,7 +65,7 @@ defmodule EmberchatWeb.ChatLive.Room do
   end
 
   defp save_room(socket, :edit, room_params) do
-    case Room.update_room(socket.assigns.current_scope, socket.assigns.editing_room, room_params) do
+    case Chat.update_room(socket.assigns.current_scope, socket.assigns.editing_room, room_params) do
       {:ok, _room} ->
         {:noreply,
          socket
@@ -84,7 +85,7 @@ defmodule EmberchatWeb.ChatLive.Room do
   end
 
   defp save_room(socket, :new, room_params) do
-    case Room.create_room(socket.assigns.current_scope, room_params) do
+    case Chat.create_room(socket.assigns.current_scope, room_params) do
       {:ok, room} ->
         {:noreply,
          socket
@@ -99,3 +100,4 @@ defmodule EmberchatWeb.ChatLive.Room do
     end
   end
 end
+
