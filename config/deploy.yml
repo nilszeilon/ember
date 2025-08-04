@@ -57,6 +57,7 @@ proxy:
 # Volume mounts for data persistence
 volumes:
   - "emberchat_data:/app/data"
+  - "emberchat_cache:/app/cache"
 
 # Asset precompilation (already handled in Dockerfile)
 asset_path: /app/lib/emberchat-0.1.0/priv/static

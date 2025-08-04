@@ -85,8 +85,12 @@ ENV LC_ALL=en_US.UTF-8
 WORKDIR "/app"
 RUN chown nobody /app
 
+# Create cache directory for Bumblebee models
+RUN mkdir -p /app/cache && chown nobody:nogroup /app/cache
+
 # set runner ENV
 ENV MIX_ENV="prod"
+ENV BUMBLEBEE_CACHE_DIR="/app/cache/bumblebee"
 
 # Only copy the final release from the build stage
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/emberchat ./
