@@ -59,7 +59,7 @@ volumes:
   - "emberchat_data:/app/data"
 
 # Asset precompilation (already handled in Dockerfile)
-asset_path: /app/lib/emberchat_web-*/priv/static
+asset_path: /app/lib/emberchat-0.1.0/priv/static
 
 # SSH configuration
 ssh:
