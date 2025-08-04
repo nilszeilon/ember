@@ -6,10 +6,12 @@ defmodule Emberchat.Accounts.UserNotifier do
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
+    from_email = Application.get_env(:emberchat, :from_email, {"Emberchat", "noreply@emberchat.org"})
+    
     email =
       new()
       |> to(recipient)
-      |> from({"Emberchat", "contact@example.com"})
+      |> from(from_email)
       |> subject(subject)
       |> text_body(body)
 

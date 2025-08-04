@@ -115,4 +115,10 @@ if config_env() == :prod do
   config :emberchat, Emberchat.Mailer,
     adapter: Swoosh.Adapters.Sendgrid,
     api_key: System.get_env("SENDGRID_API_KEY")
+
+  # Configure from email from environment variables
+  if from_name = System.get_env("FROM_EMAIL_NAME") do
+    from_address = System.get_env("FROM_EMAIL_ADDRESS") || "noreply@emberchat.org"
+    config :emberchat, :from_email, {from_name, from_address}
+  end
 end

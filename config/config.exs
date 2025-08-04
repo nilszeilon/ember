@@ -45,6 +45,9 @@ config :emberchat, EmberchatWeb.Endpoint,
 # at the `config/runtime.exs`.
 config :emberchat, Emberchat.Mailer, adapter: Swoosh.Adapters.Local
 
+# Configure default from email
+config :emberchat, :from_email, {"Emberchat", "noreply@emberchat.org"}
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
