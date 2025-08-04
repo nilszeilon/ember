@@ -47,3 +47,5 @@ mix.lock
 # Environment variables
 .env
 .env.*
+
+.kamal/secrets
