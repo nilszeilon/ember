@@ -43,3 +43,9 @@ npm-debug.log
 # generated
 flake.lock
 mix.lock
+
+# Environment variables
+.env
+.env.*
+
+.kamal/secrets

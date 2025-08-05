@@ -1,0 +1,94 @@
+# Kamal deployment configuration for Emberchat
+# Copy this file and customize it for your deployment
+
+# Name of your application
+service: emberchat
+
+# Docker image configuration
+image: nilszeilon/emberchat
+
+# Servers configuration
+servers:
+  web:
+    # Replace with your VPS IP address or hostname
+    - 138.199.221.249
+
+# Docker registry configuration
+# You can use Docker Hub, GitHub Container Registry, or any other registry
+registry:
+  # For Docker Hub (default)
+  # username: your-dockerhub-username
+  # password:
+  #   - DOCKER_PASSWORD
+  
+  # For GitHub Container Registry (recommended for private repos)
+  server: ghcr.io
+  username: nilszeilon
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+# Environment variables for the application
+env:
+  clear:
+    PHX_SERVER: true
+    PHX_HOST: chat.emberchat.org  # Replace with your domain
+    PORT: 4000
+    MIX_ENV: prod
+    POOL_SIZE: 5
+  secret:
+    # Generate with: mix phx.gen.secret
+    - SECRET_KEY_BASE
+    # Database will be stored in persistent volume
+    - DATABASE_PATH
+    # SendGrid API key for sending emails
+    - SENDGRID_API_KEY
+
+# SSL/TLS configuration via Traefik proxy
+proxy:
+  ssl: true
+  host: chat.emberchat.org  # Replace with your domain
+  healthcheck:
+    path: /
+  app_port: 4000
+
+
+  
+# Healthcheck configuration
+# Volume mounts for data persistence
+volumes:
+  - "emberchat_data:/app/data"
+  - "emberchat_cache:/app/cache"
+
+# Asset precompilation (already handled in Dockerfile)
+asset_path: /app/lib/emberchat-0.1.0/priv/static
+
+# SSH configuration
+ssh:
+  user: root  # Change if you use a different user
+
+# Optional: Database backup configuration
+# accessories:
+#   db-backup:
+#     image: alpine:latest
+#     host: 192.168.1.100
+#     cmd: |
+#       apk add --no-cache sqlite
+#       while true; do
+#         sqlite3 /data/emberchat.db ".backup /backups/emberchat-$(date +%Y%m%d_%H%M%S).db"
+#         find /backups -name "emberchat-*.db" -mtime +7 -delete
+#         sleep 86400
+#       done
+#     volumes:
+#       - "emberchat_data:/data"
+#       - "emberchat_backups:/backups"
+
+# Builder configuration for multi-platform builds
+builder:
+  arch:
+    - amd64
+  local: true
+  # Set to true if you need to build for different architectures
+
+# Boot configuration
+# boot:
+#   limit: 10  # Number of containers to boot in parallel
