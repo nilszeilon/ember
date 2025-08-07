@@ -97,7 +97,9 @@ defmodule EmberchatWeb.ChatComponents do
           
           <div class="inline-block">
             <div class={[
-              "bg-primary text-primary-content rounded-2xl px-4 py-2 group relative transition-all duration-500",
+              "rounded-2xl px-4 py-2 group relative transition-all duration-500",
+              @message.user_id == @current_user_id && "bg-primary text-primary-content",
+              @message.user_id != @current_user_id && "bg-transparent border border-base-content/20 text-base-content",
               @highlighted && "!bg-yellow-100 !text-gray-900 border-4 border-yellow-400 shadow-lg"
             ]}>
               <span class="break-words">{@message.content}</span>
