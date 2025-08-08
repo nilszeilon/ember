@@ -3,9 +3,9 @@ defmodule EmberchatWeb.ChatComponents do
 
   def room_list(assigns) do
     ~H"""
-    <div class="space-y-2">
+    <div class="flex md:flex-col gap-2 md:space-y-2">
       <%= for room <- @rooms do %>
-        <div class="w-full">
+        <div class="flex-shrink-0 md:w-full">
           <.link
             patch={~p"/#{room}"}
             class={[
@@ -103,24 +103,8 @@ defmodule EmberchatWeb.ChatComponents do
               @highlighted && "!bg-yellow-100 !text-gray-900 border-4 border-yellow-400 shadow-lg"
             ]}>
               <span class="break-words">{@message.content}</span>
-              <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                <.reaction_picker message_id={@message.id} />
-                <button
-                  class="btn btn-circle btn-ghost btn-xs"
-                  phx-click="toggle_pin"
-                  phx-value-message_id={@message.id}
-                  title={if @message.is_pinned, do: "Unpin message", else: "Pin message"}
-                >
-                  <.icon name={if @message.is_pinned, do: "hero-bookmark-solid", else: "hero-bookmark"} class="h-3 w-3" />
-                </button>
-                <button
-                  class="btn btn-circle btn-ghost btn-xs"
-                  phx-click="reply_to"
-                  phx-value-message_id={@message.id}
-                  title="Reply to this message"
-                >
-                  <.icon name="hero-arrow-uturn-left" class="h-3 w-3" />
-                </button>
+              <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <.message_actions_menu message={@message} />
               </div>
             </div>
           </div>
@@ -178,16 +162,8 @@ defmodule EmberchatWeb.ChatComponents do
                     <div class="inline-block">
                       <div class="bg-base-200 text-base-content rounded-2xl px-4 py-2 group relative transition-all duration-200">
                         <span class="break-words text-sm">{thread_message.content}</span>
-                        <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                          <.reaction_picker message_id={thread_message.id} />
-                          <button
-                            class="btn btn-circle btn-ghost btn-xs"
-                            phx-click="reply_to"
-                            phx-value-message_id={@message.id}
-                            title="Reply to this thread"
-                          >
-                            <.icon name="hero-arrow-uturn-left" class="h-3 w-3" />
-                          </button>
+                        <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <.message_actions_menu message={thread_message} parent_message_id={@message.id} />
                         </div>
                       </div>
                     </div>
@@ -229,9 +205,13 @@ defmodule EmberchatWeb.ChatComponents do
   def chat_header(assigns) do
     ~H"""
     <div class="h-16 bg-base-200 shadow-sm flex items-center px-4">
+      <!-- Mobile menu button -->
+      <button class="md:hidden mr-2" phx-click="toggle_drawer">
+        <.icon name="hero-bars-3" class="h-6 w-6" />
+      </button>
       <div class="flex-1">
         <div>
-          <h2 class="text-lg font-bold flex items-center gap-2">
+          <h2 class="text-sm md:text-lg font-bold flex items-center gap-2">
             <div class="avatar avatar-placeholder">
               <div class="bg-neutral text-neutral-content rounded-full w-8">
                 <span class="text-xs">{Map.get(@room, :emoji, "💬")}</span>
@@ -247,6 +227,11 @@ defmodule EmberchatWeb.ChatComponents do
           <% end %>
         </div>
       </div>
+      
+      <!-- Mobile search button -->
+      <button class="md:hidden mr-2" phx-click="show_search_modal">
+        <.icon name="hero-magnifying-glass" class="h-6 w-6" />
+      </button>
 
       <%= if @current_user_id == @room.user_id do %>
         <div>
@@ -268,12 +253,14 @@ defmodule EmberchatWeb.ChatComponents do
     ~H"""
     <!-- Custom sidebar with toggle support -->
     <aside class={[
-      "min-h-full bg-base-200 flex flex-col transition-all duration-300 flex-shrink-0",
-      @drawer_open && "w-64",
-      !@drawer_open && "w-20"
+      "bg-base-200 flex transition-all duration-300 flex-shrink-0",
+      "w-full md:w-auto md:min-h-full md:flex-col",
+      "flex-row overflow-x-auto md:overflow-x-visible",
+      @drawer_open && "md:w-64",
+      !@drawer_open && "md:w-20"
     ]}>
-      <!-- Sidebar Header -->
-      <div class="h-16 bg-base-300 shadow-sm flex items-center px-2">
+      <!-- Sidebar Header - Hidden on mobile -->
+      <div class="hidden md:flex h-16 bg-base-300 shadow-sm items-center px-2">
         <%= if @drawer_open do %>
           <button
             phx-click="toggle_drawer"
@@ -293,8 +280,8 @@ defmodule EmberchatWeb.ChatComponents do
         <% end %>
       </div>
       
-    <!-- Navigation -->
-      <div class="px-2 py-2">
+    <!-- Navigation - Hidden on mobile -->
+      <div class="hidden md:block px-2 py-2">
         <button
           phx-click="show_search_modal"
           class={[
@@ -323,12 +310,12 @@ defmodule EmberchatWeb.ChatComponents do
       </div>
 
     <!-- Room List -->
-      <div class="flex-1 overflow-y-auto px-2">
+      <div class="flex md:flex-1 overflow-x-auto md:overflow-y-auto overflow-y-hidden px-2 py-2 md:py-0">
         <%= if @drawer_open do %>
-          <div class="divider text-xs">ROOMS</div>
+          <div class="divider text-xs hidden md:block">ROOMS</div>
         <% end %>
         <.room_list rooms={@rooms} current_room={@current_room} drawer_open={@drawer_open} />
-        <div class="mt-4">
+        <div class="mt-4 hidden md:block">
           <div class="w-full">
             <button
               phx-click="show_new_room_modal"
@@ -357,8 +344,8 @@ defmodule EmberchatWeb.ChatComponents do
         </div>
       </div>
       
-    <!-- Sidebar Footer -->
-      <div class="p-2">
+    <!-- Sidebar Footer - Hidden on mobile -->
+      <div class="hidden md:block p-2">
         <%= if @drawer_open do %>
           <div class="bg-base-100 rounded-lg p-2 flex gap-2">
             <.link
@@ -1031,6 +1018,60 @@ defmodule EmberchatWeb.ChatComponents do
             Close
           </button>
         </div>
+      </div>
+    </div>
+    """
+  end
+
+  def message_actions_menu(assigns) do
+    assigns = assign_new(assigns, :parent_message_id, fn -> nil end)
+    
+    ~H"""
+    <div class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-circle btn-xs bg-base-300 hover:bg-base-content hover:text-base-100 border border-base-content/20 shadow-sm" title="Message actions">
+        <.icon name="hero-ellipsis-horizontal" class="h-3 w-3" />
+      </label>
+      <div tabindex="0" class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-48 z-50">
+        <ul class="menu-compact">
+          <li>
+            <button
+              phx-click="reply_to"
+              phx-value-message_id={@parent_message_id || @message.id}
+              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded"
+            >
+              <.icon name="hero-arrow-uturn-left" class="h-4 w-4" />
+              Reply
+            </button>
+          </li>
+          <li>
+            <button
+              phx-click="toggle_pin"
+              phx-value-message_id={@message.id}
+              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded"
+            >
+              <.icon name={if @message.is_pinned, do: "hero-bookmark-solid", else: "hero-bookmark"} class="h-4 w-4" />
+              {if @message.is_pinned, do: "Unpin", else: "Pin"}
+            </button>
+          </li>
+          <li>
+            <div class="px-3 py-2">
+              <div class="grid grid-cols-5 gap-1">
+                <% allowed_emojis = ["👍", "❤️", "😂", "🎉", "🤔", "👎", "🔥", "👏", "💯", "😢"] %>
+                <%= for emoji <- allowed_emojis do %>
+                  <button
+                    phx-click="toggle_reaction"
+                    phx-value-message_id={@message.id}
+                    phx-value-emoji={emoji}
+                    class="btn btn-ghost btn-xs text-lg hover:bg-base-200 w-8 h-8 p-0"
+                    title={"React with #{emoji}"}
+                  >
+                    {emoji}
+                  </button>
+                <% end %>
+              </div>
+            </div>
+          </li>
+        </ul>
       </div>
     </div>
     """

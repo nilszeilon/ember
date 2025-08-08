@@ -373,24 +373,26 @@ defmodule EmberchatWeb.ChatLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-screen" phx-hook="KeyboardShortcuts" id="chat-container">
-      <!-- Custom Sidebar -->
-      <.chat_sidebar
-        current_user={@current_scope.user}
-        rooms={@rooms}
-        current_room={@current_room}
-        drawer_open={@drawer_open}
-      />
+    <div class="flex h-screen flex-col md:flex-row" phx-hook="KeyboardShortcuts" id="chat-container">
+      <!-- Custom Sidebar - Hidden on mobile -->
+      <div class="hidden md:block">
+        <.chat_sidebar
+          current_user={@current_scope.user}
+          rooms={@rooms}
+          current_room={@current_room}
+          drawer_open={@drawer_open}
+        />
+      </div>
       
     <!-- Main content area -->
-      <div class="flex-1 flex flex-col h-full">
+      <div class="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
         <%= if @current_room do %>
           <!-- Chat header -->
           <.chat_header room={@current_room} current_user_id={@current_scope.user.id} />
           
     <!-- Messages container - takes remaining height -->
           <div
-            class="flex-1 overflow-y-auto p-6 min-h-0"
+            class="flex-1 overflow-y-auto p-4 md:p-6 min-h-0"
             id="messages-container"
             phx-hook="MessageScroll"
             {if @highlight_message_id, do: [{"data-highlight", @highlight_message_id}], else: []}
@@ -436,7 +438,7 @@ defmodule EmberchatWeb.ChatLive do
           </div>
           
     <!-- Fixed input bar at bottom -->
-          <div class="flex-shrink-0">
+          <div class="flex-shrink-0 sticky bottom-0 z-10">
             <.message_input
               replying_to={@replying_to}
               room_id={@current_room.id}
@@ -498,6 +500,98 @@ defmodule EmberchatWeb.ChatLive do
                 <button type="submit" class="btn btn-primary">Pin Message</button>
               </div>
             </form>
+          </div>
+        </div>
+      <% end %>
+      
+      <!-- Mobile drawer overlay -->
+      <%= if @drawer_open do %>
+        <div class="md:hidden fixed inset-0 bg-black/50 z-40" phx-click="toggle_drawer"></div>
+        <div class="md:hidden fixed left-0 top-0 h-full w-64 bg-base-200 z-50 shadow-xl overflow-y-auto">
+          <!-- Mobile drawer header -->
+          <div class="h-16 bg-base-300 shadow-sm flex items-center px-4 justify-between">
+            <span class="text-xl font-bold">EmberChat</span>
+            <button phx-click="toggle_drawer" class="btn btn-ghost btn-sm btn-circle">
+              <.icon name="hero-x-mark" class="h-5 w-5" />
+            </button>
+          </div>
+          
+          <!-- Search button -->
+          <div class="p-4">
+            <button
+              phx-click="show_search_modal"
+              class="btn btn-block btn-primary"
+            >
+              <.icon name="hero-magnifying-glass" class="h-5 w-5" />
+              Search Messages
+            </button>
+          </div>
+          
+          <!-- Room list -->
+          <div class="px-4">
+            <div class="divider text-xs">ROOMS</div>
+            <div class="space-y-2">
+              <%= for room <- @rooms do %>
+                <.link
+                  patch={~p"/#{room}"}
+                  phx-click="toggle_drawer"
+                  class={[
+                    "block w-full p-3 rounded-lg transition-all duration-200 hover:bg-base-300 border flex items-center gap-3",
+                    @current_room && @current_room.id == room.id && "bg-primary/10 border-primary/20",
+                    !(@current_room && @current_room.id == room.id) && "border-transparent"
+                  ]}
+                >
+                  <div class="avatar avatar-placeholder">
+                    <div class={[
+                      "rounded-full text-neutral-content border transition-all duration-200 flex items-center justify-center w-10 h-10",
+                      @current_room && @current_room.id == room.id &&
+                        "bg-primary text-primary-content border-primary-focus ring-2 ring-primary/30",
+                      !(@current_room && @current_room.id == room.id) &&
+                        "bg-base-300 border-base-content/10"
+                    ]}>
+                      <span class="text-lg">{Map.get(room, :emoji, "💬")}</span>
+                    </div>
+                  </div>
+                  <span class="font-medium">{room.name}</span>
+                </.link>
+              <% end %>
+            </div>
+            
+            <!-- New room button -->
+            <div class="mt-4">
+              <button
+                phx-click="show_new_room_modal"
+                class="block w-full p-3 rounded-lg transition-all duration-200 hover:bg-primary/20 border-2 border-dashed border-primary/40 hover:border-primary/60 flex items-center gap-3"
+              >
+                <div class="avatar avatar-placeholder">
+                  <div class="rounded-full border-2 border-dashed border-primary/60 bg-primary/10 text-primary w-10 h-10 flex items-center justify-center">
+                    <.icon name="hero-plus" class="h-5 w-5" />
+                  </div>
+                </div>
+                <span class="font-medium text-primary">New Room</span>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="p-4 mt-auto">
+            <div class="bg-base-100 rounded-lg p-2 flex gap-2">
+              <.link
+                navigate={~p"/users/settings"}
+                class="flex-1 p-2 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center justify-center"
+              >
+                <.icon name="hero-cog-6-tooth" class="h-5 w-5" />
+                <span class="ml-2">Settings</span>
+              </.link>
+              <.link
+                href={~p"/users/log-out"}
+                method="delete"
+                class="flex-1 p-2 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center justify-center"
+              >
+                <.icon name="hero-arrow-left-on-rectangle" class="h-5 w-5" />
+                <span class="ml-2">Log out</span>
+              </.link>
+            </div>
           </div>
         </div>
       <% end %>
