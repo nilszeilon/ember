@@ -25,6 +25,9 @@ defmodule EmberchatWeb.SearchLive do
      |> assign(:search_stats, nil)
      |> assign(:similarity_weight, 0.7)
      |> assign(:recency_weight, 0.3)
+     |> assign(:search_mode, :fts)
+     |> assign(:semantic_results, [])
+     |> assign(:semantic_loading, false)
      |> assign(:page_title, "Search Messages"), layout: {EmberchatWeb.Layouts, :chat}}
   end
 
@@ -63,6 +66,7 @@ defmodule EmberchatWeb.SearchLive do
       room_id -> String.to_integer(room_id)
     end
     
+    search_mode = String.to_existing_atom(params["search_mode"] || "fts")
     similarity_weight = String.to_float(params["similarity_weight"] || "0.7")
     recency_weight = String.to_float(params["recency_weight"] || "0.3")
 
@@ -70,6 +74,7 @@ defmodule EmberchatWeb.SearchLive do
      socket
      |> assign(:query, query)
      |> assign(:selected_room, room_id)
+     |> assign(:search_mode, search_mode)
      |> assign(:similarity_weight, similarity_weight)
      |> assign(:recency_weight, recency_weight)
      |> assign(:searching, true)
@@ -157,6 +162,34 @@ defmodule EmberchatWeb.SearchLive do
   end
 
   @impl true
+  def handle_info({:fts_results_ready, results, stats}, socket) do
+    {:noreply,
+     socket
+     |> assign(:search_results, results)
+     |> assign(:search_stats, stats)
+     |> assign(:searching, false)
+     |> assign(:semantic_loading, true)}
+  end
+
+  @impl true
+  def handle_info({:semantic_results_ready, semantic_results}, socket) do
+    # Merge FTS and semantic results
+    merged_results = Emberchat.Chat.ChatSearch.merge_search_results(
+      socket.assigns.search_results,
+      semantic_results
+    )
+    
+    {:noreply,
+     socket
+     |> assign(:search_results, merged_results)
+     |> assign(:semantic_results, semantic_results)
+     |> assign(:semantic_loading, false)
+     |> update(:search_stats, fn stats ->
+       Map.put(stats, :search_type, "hybrid")
+     end)}
+  end
+
+  @impl true
   def handle_info({:similar_results_ready, results, original_message}, socket) do
     stats = %{
       total_results: length(results),
@@ -188,6 +221,7 @@ defmodule EmberchatWeb.SearchLive do
     query = socket.assigns.query
     scope = socket.assigns.current_scope
     room_id = socket.assigns.selected_room
+    search_mode = socket.assigns.search_mode
     similarity_weight = socket.assigns.similarity_weight
     recency_weight = socket.assigns.recency_weight
 
@@ -196,6 +230,7 @@ defmodule EmberchatWeb.SearchLive do
       start_time = System.monotonic_time(:millisecond)
       
       case Chat.search_messages(query, scope, 
+                               mode: search_mode,
                                room_id: room_id, 
                                limit: 20,
                                similarity_weight: similarity_weight,
@@ -207,7 +242,7 @@ defmodule EmberchatWeb.SearchLive do
           stats = %{
             total_results: length(results),
             search_time_ms: search_time,
-            search_type: "semantic",
+            search_type: to_string(search_mode),
             query: query,
             room_filter: room_id,
             similarity_weight: similarity_weight,
@@ -215,6 +250,37 @@ defmodule EmberchatWeb.SearchLive do
           }
           
           send(parent, {:search_results_ready, results, stats})
+          
+        {:ok, results, :semantic_pending} ->
+          # Hybrid mode - FTS results ready, semantic loading
+          end_time = System.monotonic_time(:millisecond)
+          search_time = end_time - start_time
+          
+          stats = %{
+            total_results: length(results),
+            search_time_ms: search_time,
+            search_type: "fts",
+            query: query,
+            room_filter: room_id
+          }
+          
+          send(parent, {:fts_results_ready, results, stats})
+          
+          # Start semantic search in background
+          Task.start(fn ->
+            case Chat.search_messages_semantic(query, scope,
+                                     room_id: room_id,
+                                     limit: 20,
+                                     similarity_weight: similarity_weight,
+                                     recency_weight: recency_weight) do
+              {:ok, semantic_results} ->
+                send(parent, {:semantic_results_ready, semantic_results})
+              {:error, _reason} ->
+                # Silently fail, we already have FTS results
+                :ok
+            end
+          end)
+          
         {:error, reason} ->
           send(parent, {:search_error, "Search failed: #{inspect(reason)}"})
       end
@@ -297,6 +363,35 @@ defmodule EmberchatWeb.SearchLive do
                 Advanced Options
               </summary>
               <div class="mt-3 p-4 bg-gray-50 rounded-lg space-y-3">
+                <!-- Search Mode Selector -->
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Search Mode
+                  </label>
+                  <div class="grid grid-cols-3 gap-2">
+                    <label class={"cursor-pointer rounded-lg border-2 p-3 text-center transition-all " <> 
+                                  if @search_mode == :fts, do: "border-blue-500 bg-blue-50", else: "border-gray-200 hover:border-gray-300"}>
+                      <input type="radio" name="search_mode" value="fts" class="sr-only" checked={@search_mode == :fts} />
+                      <div class="font-medium">Quick Search</div>
+                      <div class="text-xs text-gray-600 mt-1">Instant results</div>
+                    </label>
+                    
+                    <label class={"cursor-pointer rounded-lg border-2 p-3 text-center transition-all " <> 
+                                  if @search_mode == :hybrid, do: "border-blue-500 bg-blue-50", else: "border-gray-200 hover:border-gray-300"}>
+                      <input type="radio" name="search_mode" value="hybrid" class="sr-only" checked={@search_mode == :hybrid} />
+                      <div class="font-medium">Smart Search</div>
+                      <div class="text-xs text-gray-600 mt-1">Best of both</div>
+                    </label>
+                    
+                    <label class={"cursor-pointer rounded-lg border-2 p-3 text-center transition-all " <> 
+                                  if @search_mode == :semantic, do: "border-blue-500 bg-blue-50", else: "border-gray-200 hover:border-gray-300"}>
+                      <input type="radio" name="search_mode" value="semantic" class="sr-only" checked={@search_mode == :semantic} />
+                      <div class="font-medium">Deep Search</div>
+                      <div class="text-xs text-gray-600 mt-1">AI-powered</div>
+                    </label>
+                  </div>
+                </div>
+                
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <!-- Room Filter -->
                   <div>
@@ -351,6 +446,7 @@ defmodule EmberchatWeb.SearchLive do
                   phx-click="search_with_filters"
                   phx-value-query={@query}
                   phx-value-room_id={@selected_room}
+                  phx-value-search_mode={@search_mode}
                   phx-value-similarity_weight={@similarity_weight}
                   phx-value-recency_weight={@recency_weight}
                   class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
@@ -369,14 +465,32 @@ defmodule EmberchatWeb.SearchLive do
           <!-- Search Stats -->
           <%= if @search_stats do %>
             <div class="mb-4 text-sm text-gray-600">
-              <%= if @search_stats.search_type == "semantic" do %>
-                Found <%= @search_stats.total_results %> messages for "<%= @search_stats.query %>" 
-                in <%= @search_stats.search_time_ms %>ms
-              <% else %>
-                Found <%= @search_stats.total_results %> messages similar to:
-                <div class="mt-1 p-2 bg-gray-100 rounded text-xs">
-                  <%= @search_stats.original_message.content %>
-                </div>
+              <%= cond do %>
+                <% @search_stats.search_type == "fts" -> %>
+                  Found <%= @search_stats.total_results %> messages for "<%= @search_stats.query %>" 
+                  in <%= @search_stats.search_time_ms %>ms (Quick Search)
+                  <%= if @semantic_loading do %>
+                    <span class="ml-2 text-blue-600">
+                      <svg class="inline animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Enhancing with AI...
+                    </span>
+                  <% end %>
+                <% @search_stats.search_type == "semantic" -> %>
+                  Found <%= @search_stats.total_results %> messages for "<%= @search_stats.query %>" 
+                  in <%= @search_stats.search_time_ms %>ms (Deep Search)
+                <% @search_stats.search_type == "hybrid" -> %>
+                  Found <%= @search_stats.total_results %> messages for "<%= @search_stats.query %>" 
+                  (Smart Search - Combined Results)
+                <% @search_stats.original_message -> %>
+                  Found <%= @search_stats.total_results %> messages similar to:
+                  <div class="mt-1 p-2 bg-gray-100 rounded text-xs">
+                    <%= @search_stats.original_message.content %>
+                  </div>
+                <% true -> %>
+                  Found <%= @search_stats.total_results %> messages
               <% end %>
             </div>
           <% end %>

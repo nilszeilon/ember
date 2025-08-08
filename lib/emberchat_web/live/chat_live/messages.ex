@@ -41,8 +41,7 @@ defmodule EmberchatWeb.ChatLive.Messages do
          socket
          |> assign(:new_message, %Message{room_id: socket.assigns.current_room.id})
          |> assign(:replying_to, nil)
-         |> assign(:drafts, drafts)
-         |> put_flash(:info, "Message sent successfully")}
+         |> assign(:drafts, drafts)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :new_message, changeset)}

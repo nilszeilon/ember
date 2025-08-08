@@ -8,7 +8,7 @@ defmodule Emberchat.Chat do
   require Logger
 
   alias Emberchat.Accounts.Scope
-  alias Emberchat.Chat.{Message, EmbeddingGenerator, SemanticSearch}
+  alias Emberchat.Chat.{Message, EmbeddingGenerator, SemanticSearch, ChatSearch}
 
   # Import all the extracted modules
   alias Emberchat.Chat.{Messages, Reactions, Rooms}
@@ -41,20 +41,32 @@ defmodule Emberchat.Chat do
   defdelegate get_message_reactions(message_id), to: Reactions
   defdelegate subscribe_reactions(message_id), to: Reactions
 
-  # Semantic Search Functions
+  # Hybrid Search Functions
 
   @doc """
-  Search messages using semantic similarity and recency scoring.
-
+  Search messages using hybrid search (FTS + optional semantic).
+  
+  Options:
+  - mode: :fts (default), :semantic, or :hybrid
+  - limit: Maximum number of results
+  - room_id: Filter by specific room
+  
   ## Examples
 
       iex> search_messages("machine learning", scope)
       {:ok, [%Message{}, ...]}
       
-      iex> search_messages("invalid query", scope, room_id: 123, limit: 10)
-      {:error, reason}
+      iex> search_messages("bug fix", scope, mode: :hybrid, room_id: 123)
+      {:ok, [%Message{}, ...], :semantic_pending}
   """
   def search_messages(query, %Scope{} = scope, opts \\ []) do
+    ChatSearch.search(query, scope, opts)
+  end
+
+  @doc """
+  Search messages using only semantic search (slower but more accurate).
+  """
+  def search_messages_semantic(query, %Scope{} = scope, opts \\ []) do
     SemanticSearch.search_messages(query, scope, opts)
   end
 
@@ -66,10 +78,10 @@ defmodule Emberchat.Chat do
   end
 
   @doc """
-  Get search suggestions based on partial query input.
+  Get search suggestions based on partial query input using FTS.
   """
   def get_search_suggestions(partial_query, %Scope{} = scope, opts \\ []) do
-    SemanticSearch.get_search_suggestions(partial_query, scope, opts)
+    ChatSearch.get_suggestions(partial_query, scope, opts)
   end
 
   @doc """
