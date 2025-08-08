@@ -31,7 +31,7 @@ registry:
 env:
   clear:
     PHX_SERVER: true
-    PHX_HOST: chat.emberchat.org  # Replace with your domain
+    PHX_HOST: emberchat.org  # Replace with your domain
     PORT: 4000
     MIX_ENV: prod
     POOL_SIZE: 5
@@ -46,7 +46,7 @@ env:
 # SSL/TLS configuration via Traefik proxy
 proxy:
   ssl: true
-  host: chat.emberchat.org  # Replace with your domain
+  host: emberchat.org  # Replace with your domain
   healthcheck:
     path: /
   app_port: 4000
