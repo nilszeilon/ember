@@ -3,7 +3,7 @@ defmodule EmberchatWeb.ChatComponents do
 
   def room_list(assigns) do
     ~H"""
-    <div class="flex md:flex-col gap-2 md:space-y-2">
+    <div class="flex flex-col gap-2 space-y-2">
       <%= for room <- @rooms do %>
         <div class="flex-shrink-0 md:w-full">
           <.link
@@ -310,7 +310,7 @@ defmodule EmberchatWeb.ChatComponents do
       </div>
 
     <!-- Room List -->
-      <div class="flex md:flex-1 overflow-x-auto md:overflow-y-auto overflow-y-hidden px-2 py-2 md:py-0">
+      <div class="flex flex-col md:flex-1 overflow-y-auto px-2 py-2 md:py-0">
         <%= if @drawer_open do %>
           <div class="divider text-xs hidden md:block">ROOMS</div>
         <% end %>
