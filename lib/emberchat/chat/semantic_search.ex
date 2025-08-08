@@ -122,6 +122,8 @@ defmodule Emberchat.Chat.SemanticSearch do
         query = """
         SELECT me.message_id, vec_distance_cosine(me.embedding, ?) as distance
         FROM message_embeddings me
+        JOIN messages m ON me.message_id = m.id
+        WHERE m.deleted_at IS NULL
         ORDER BY distance ASC
         LIMIT ?
         """
@@ -132,7 +134,7 @@ defmodule Emberchat.Chat.SemanticSearch do
         SELECT me.message_id, vec_distance_cosine(me.embedding, ?) as distance
         FROM message_embeddings me
         JOIN messages m ON me.message_id = m.id
-        WHERE m.room_id = ?
+        WHERE m.room_id = ? AND m.deleted_at IS NULL
         ORDER BY distance ASC
         LIMIT ?
         """
@@ -156,7 +158,7 @@ defmodule Emberchat.Chat.SemanticSearch do
 
   defp get_messages_with_timestamps(message_ids, room_id) do
     query = from(m in Message,
-      where: m.id in ^message_ids,
+      where: m.id in ^message_ids and is_nil(m.deleted_at),
       preload: [:user, parent_message: :user],
       select: m
     )
@@ -211,7 +213,7 @@ defmodule Emberchat.Chat.SemanticSearch do
     # This could be enhanced with more sophisticated NLP
     # SQLite doesn't support ilike, use LIKE with LOWER for case-insensitive search
     query = from(m in Message,
-      where: fragment("LOWER(?) LIKE LOWER(?)", m.content, ^"%#{partial_query}%"),
+      where: fragment("LOWER(?) LIKE LOWER(?)", m.content, ^"%#{partial_query}%") and is_nil(m.deleted_at),
       order_by: [desc: m.inserted_at],
       limit: ^(limit * 2),
       select: m.content

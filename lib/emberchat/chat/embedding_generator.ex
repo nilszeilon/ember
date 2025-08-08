@@ -115,7 +115,7 @@ defmodule Emberchat.Chat.EmbeddingGenerator do
   Count messages without embeddings.
   """
   def count_messages_without_embeddings do
-    from(m in Message, where: is_nil(m.embedding) or m.embedding == "")
+    from(m in Message, where: (is_nil(m.embedding) or m.embedding == "") and is_nil(m.deleted_at))
     |> Repo.aggregate(:count)
   end
 
@@ -145,7 +145,7 @@ defmodule Emberchat.Chat.EmbeddingGenerator do
   defp process_batch_recursive(batch_size, total_count, total_processed) do
     messages = 
       from(m in Message, 
-        where: is_nil(m.embedding) or m.embedding == "",
+        where: (is_nil(m.embedding) or m.embedding == "") and is_nil(m.deleted_at),
         limit: ^batch_size,
         order_by: [asc: m.id]
       )

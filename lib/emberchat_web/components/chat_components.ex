@@ -59,6 +59,7 @@ defmodule EmberchatWeb.ChatComponents do
     assigns = assign_new(assigns, :current_user_id, fn -> nil end)
     assigns = assign_new(assigns, :show_all_reactions, fn -> false end)
     assigns = assign_new(assigns, :thread_expanded, fn -> false end)
+    assigns = assign_new(assigns, :editing_message, fn -> nil end)
     
     ~H"""
     <div id={"message-#{@message.id}"}>
@@ -95,28 +96,61 @@ defmodule EmberchatWeb.ChatComponents do
             </time>
           </div>
           
-          <div class="inline-block">
-            <div class={[
-              "rounded-2xl px-4 py-2 group relative transition-all duration-500",
-              @message.user_id == @current_user_id && "bg-primary text-primary-content",
-              @message.user_id != @current_user_id && "bg-transparent border border-base-content/20 text-base-content",
-              @highlighted && "!bg-yellow-100 !text-gray-900 border-4 border-yellow-400 shadow-lg"
-            ]}>
-              <span class="break-words">{@message.content}</span>
-              <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <.message_actions_menu message={@message} />
+          <%= if @editing_message && @editing_message.id == @message.id do %>
+            <div class="w-full">
+              <.form for={%{}} phx-submit="save_edit" class="flex gap-2">
+                <input
+                  type="text"
+                  name="message[content]"
+                  value={@message.content}
+                  class="input input-bordered flex-1 input-sm focus:input-primary"
+                  required
+                  autofocus
+                />
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <.icon name="hero-check" class="h-4 w-4" />
+                </button>
+                <button type="button" phx-click="cancel_edit" class="btn btn-ghost btn-sm">
+                  <.icon name="hero-x-mark" class="h-4 w-4" />
+                </button>
+              </.form>
+            </div>
+          <% else %>
+            <div class="inline-block">
+              <div class={[
+                "rounded-2xl px-4 py-2 group relative transition-all duration-500",
+                @message.user_id == @current_user_id && "bg-primary text-primary-content",
+                @message.user_id != @current_user_id && "bg-transparent border border-base-content/20 text-base-content",
+                @highlighted && "!bg-yellow-100 !text-gray-900 border-4 border-yellow-400 shadow-lg"
+              ]}>
+                <span class={[
+                  "break-words",
+                  @message.deleted_at && "italic opacity-60"
+                ]}>
+                  {Emberchat.Chat.Message.display_content(@message)}
+                </span>
+                <%= if @message.edited_at do %>
+                  <span class="text-xs opacity-50 ml-2">(edited)</span>
+                <% end %>
+                <%= if !@message.deleted_at do %>
+                  <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <.message_actions_menu message={@message} current_user_id={@current_user_id} />
+                  </div>
+                <% end %>
               </div>
             </div>
-          </div>
+          <% end %>
         </div>
       </div>
       
-      <.message_reactions 
-        reactions={Map.get(@message, :reaction_summary, [])} 
-        message_id={@message.id}
-        current_user_id={@current_user_id}
-        show_all={@show_all_reactions}
-      />
+      <%= if !@message.deleted_at do %>
+        <.message_reactions 
+          reactions={Map.get(@message, :reaction_summary, [])} 
+          message_id={@message.id}
+          current_user_id={@current_user_id}
+          show_all={@show_all_reactions}
+        />
+      <% end %>
       
       <%= if @message.reply_count > 0 do %>
         <div class="mt-2 ml-14">
@@ -161,19 +195,31 @@ defmodule EmberchatWeb.ChatComponents do
                     
                     <div class="inline-block">
                       <div class="bg-base-200 text-base-content rounded-2xl px-4 py-2 group relative transition-all duration-200">
-                        <span class="break-words text-sm">{thread_message.content}</span>
-                        <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <.message_actions_menu message={thread_message} parent_message_id={@message.id} />
-                        </div>
+                        <span class={[
+                          "break-words text-sm",
+                          thread_message.deleted_at && "italic opacity-60"
+                        ]}>
+                          {Emberchat.Chat.Message.display_content(thread_message)}
+                        </span>
+                        <%= if thread_message.edited_at do %>
+                          <span class="text-xs opacity-50 ml-2">(edited)</span>
+                        <% end %>
+                        <%= if !thread_message.deleted_at do %>
+                          <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <.message_actions_menu message={thread_message} parent_message_id={@message.id} current_user_id={@current_user_id} />
+                          </div>
+                        <% end %>
                       </div>
                     </div>
                     
-                    <.message_reactions 
-                      reactions={Map.get(thread_message, :reaction_summary, [])} 
-                      message_id={thread_message.id}
-                      current_user_id={@current_user_id}
-                      show_all={false}
-                    />
+                    <%= if !thread_message.deleted_at do %>
+                      <.message_reactions 
+                        reactions={Map.get(thread_message, :reaction_summary, [])} 
+                        message_id={thread_message.id}
+                        current_user_id={@current_user_id}
+                        show_all={false}
+                      />
+                    <% end %>
                   </div>
                 </div>
               <% end %>
@@ -1025,6 +1071,7 @@ defmodule EmberchatWeb.ChatComponents do
 
   def message_actions_menu(assigns) do
     assigns = assign_new(assigns, :parent_message_id, fn -> nil end)
+    assigns = assign_new(assigns, :current_user_id, fn -> nil end)
     
     ~H"""
     <div class="dropdown dropdown-end">
@@ -1053,6 +1100,28 @@ defmodule EmberchatWeb.ChatComponents do
               {if @message.is_pinned, do: "Unpin", else: "Pin"}
             </button>
           </li>
+          <%= if @message.user_id == @current_user_id && !@message.deleted_at do %>
+            <li>
+              <button
+                phx-click="edit_message"
+                phx-value-message_id={@message.id}
+                class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded"
+              >
+                <.icon name="hero-pencil" class="h-4 w-4" />
+                Edit
+              </button>
+            </li>
+            <li>
+              <button
+                phx-click="delete_message"
+                phx-value-message_id={@message.id}
+                class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-error"
+              >
+                <.icon name="hero-trash" class="h-4 w-4" />
+                Delete
+              </button>
+            </li>
+          <% end %>
           <li>
             <div class="px-3 py-2">
               <div class="grid grid-cols-5 gap-1">

@@ -30,6 +30,7 @@ defmodule Emberchat.Chat do
   defdelegate get_message!(scope, id), to: Messages
   defdelegate create_message(scope, attrs), to: Messages
   defdelegate update_message(scope, message, attrs), to: Messages
+  defdelegate edit_message(scope, message, attrs), to: Messages
   defdelegate delete_message(scope, message), to: Messages
   defdelegate change_message(scope, message, attrs \\ %{}), to: Messages
   defdelegate subscribe_messages(scope), to: Messages

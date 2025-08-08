@@ -12,6 +12,8 @@ defmodule Emberchat.Chat.Message do
     field :is_pinned, :boolean, default: false
     field :pin_slug, :string
     field :pinned_at, :utc_datetime
+    field :deleted_at, :utc_datetime
+    field :edited_at, :utc_datetime
     
     belongs_to :user, Emberchat.Accounts.User
     belongs_to :parent_message, __MODULE__
@@ -113,6 +115,49 @@ defmodule Emberchat.Chat.Message do
   end
 
   defp parent_message_exists?(parent_id) do
-    Emberchat.Repo.exists?(from m in __MODULE__, where: m.id == ^parent_id)
+    Emberchat.Repo.exists?(from m in __MODULE__, where: m.id == ^parent_id and is_nil(m.deleted_at))
   end
+
+  @doc """
+  Changeset for soft deleting a message.
+  """
+  def soft_delete_changeset(message) do
+    change(message, deleted_at: DateTime.utc_now(:second))
+  end
+
+  @doc """
+  Changeset for editing a message with edit tracking.
+  """
+  def edit_changeset(message, attrs, user_scope) do
+    message
+    |> cast(attrs, [:content])
+    |> validate_required([:content])
+    |> put_change(:user_id, user_scope.user.id)
+    |> put_change(:edited_at, DateTime.utc_now(:second))
+  end
+
+  @doc """
+  Check if a message is soft deleted.
+  """
+  def deleted?(%__MODULE__{deleted_at: nil}), do: false
+  def deleted?(%__MODULE__{deleted_at: _}), do: true
+
+  @doc """
+  Check if a message has been edited.
+  """
+  def edited?(%__MODULE__{edited_at: nil}), do: false
+  def edited?(%__MODULE__{edited_at: _}), do: true
+
+  @doc """
+  Get display content for a message (handles soft deleted messages).
+  """
+  def display_content(%__MODULE__{deleted_at: nil, content: content}), do: content
+  def display_content(%__MODULE__{deleted_at: _}), do: "Message deleted"
+
+  @doc """
+  Check if a deleted message should be shown (only if it has replies).
+  """
+  def should_show_when_deleted?(%__MODULE__{deleted_at: nil}), do: true
+  def should_show_when_deleted?(%__MODULE__{deleted_at: _, reply_count: count}) when count > 0, do: true
+  def should_show_when_deleted?(%__MODULE__{deleted_at: _}), do: false
 end
