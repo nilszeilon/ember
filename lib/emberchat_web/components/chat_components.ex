@@ -1071,15 +1071,13 @@ defmodule EmberchatWeb.ChatComponents do
 
   def message_actions_menu(assigns) do
     assigns = assign_new(assigns, :parent_message_id, fn -> nil end)
-    assigns = assign_new(assigns, :current_user_id, fn -> nil end)
     
     ~H"""
-    <div class="dropdown dropdown-end">
-      <label tabindex="0" class="btn btn-circle btn-xs bg-base-300 hover:bg-base-content hover:text-base-100 border border-base-content/20 shadow-sm" title="Message actions">
+    <div class="dropdown dropdown-right">
+      <label tabindex="0" class="btn btn-circle btn-xs bg-base-100 hover:bg-base-content  border border-base-content/20 shadow-sm" title="Message actions">
         <.icon name="hero-ellipsis-horizontal" class="h-3 w-3" />
       </label>
-      <div tabindex="0" class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-48 z-50">
-        <ul class="menu-compact">
+      <ul tabindex="0" class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-48 text-neutral">
           <li>
             <button
               phx-click="reply_to"
@@ -1094,7 +1092,7 @@ defmodule EmberchatWeb.ChatComponents do
             <button
               phx-click="toggle_pin"
               phx-value-message_id={@message.id}
-              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded"
+              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-neutral"
             >
               <.icon name={if @message.is_pinned, do: "hero-bookmark-solid", else: "hero-bookmark"} class="h-4 w-4" />
               {if @message.is_pinned, do: "Unpin", else: "Pin"}
@@ -1105,7 +1103,7 @@ defmodule EmberchatWeb.ChatComponents do
               <button
                 phx-click="edit_message"
                 phx-value-message_id={@message.id}
-                class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded"
+                class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-info"
               >
                 <.icon name="hero-pencil" class="h-4 w-4" />
                 Edit
@@ -1140,8 +1138,7 @@ defmodule EmberchatWeb.ChatComponents do
               </div>
             </div>
           </li>
-        </ul>
-      </div>
+      </ul>
     </div>
     """
   end
