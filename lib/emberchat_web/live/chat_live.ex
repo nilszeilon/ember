@@ -34,6 +34,7 @@ defmodule EmberchatWeb.ChatLive do
      |> assign(:messages, [])
      |> assign(:new_message, %Message{})
      |> assign(:replying_to, nil)
+     |> assign(:editing_message, nil)
      |> assign(:drawer_open, drawer_open)
      |> assign(:show_room_modal, false)
      |> assign(:room_modal_mode, :new)
@@ -154,6 +155,22 @@ defmodule EmberchatWeb.ChatLive do
   @impl true
   def handle_event("find_similar", params, socket),
     do: MessagesHelpers.handle_event("find_similar", params, socket)
+
+  @impl true
+  def handle_event("edit_message", params, socket),
+    do: MessagesHelpers.handle_event("edit_message", params, socket)
+
+  @impl true
+  def handle_event("cancel_edit", params, socket),
+    do: MessagesHelpers.handle_event("cancel_edit", params, socket)
+
+  @impl true
+  def handle_event("save_edit", params, socket),
+    do: MessagesHelpers.handle_event("save_edit", params, socket)
+
+  @impl true
+  def handle_event("delete_message", params, socket),
+    do: MessagesHelpers.handle_event("delete_message", params, socket)
 
   # Delegate navigation events to NavigationHelpers
   @impl true
@@ -432,6 +449,7 @@ defmodule EmberchatWeb.ChatLive do
                   current_user_id={@current_scope.user.id}
                   show_all_reactions={MapSet.member?(@expanded_reactions, message.id)}
                   thread_expanded={MapSet.member?(@expanded_threads, message.id)}
+                  editing_message={@editing_message}
                 />
               <% end %>
             </div>

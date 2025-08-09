@@ -90,10 +90,11 @@ defmodule Emberchat.Chat.ChatSearch do
       
       query_sql = """
       SELECT DISTINCT highlight(messages_fts, 1, '<b>', '</b>') as highlighted,
-             content
+             messages_fts.content
       FROM messages_fts
-      WHERE messages_fts MATCH ?
-      #{if room_id, do: "AND room_id = ?", else: ""}
+      JOIN messages m ON messages_fts.message_id = m.id
+      WHERE messages_fts MATCH ? AND m.deleted_at IS NULL
+      #{if room_id, do: "AND m.room_id = ?", else: ""}
       ORDER BY rank
       LIMIT ?
       """
@@ -127,7 +128,7 @@ defmodule Emberchat.Chat.ChatSearch do
   Count messages in a room to determine search strategy.
   """
   def count_room_messages(room_id) do
-    from(m in Message, where: m.room_id == ^room_id, select: count(m.id))
+    from(m in Message, where: m.room_id == ^room_id and is_nil(m.deleted_at), select: count(m.id))
     |> Repo.one()
   end
 
@@ -144,15 +145,16 @@ defmodule Emberchat.Chat.ChatSearch do
 
   defp build_fts_query(fts_query, room_id, limit) do
     base_query = """
-    SELECT message_id, 
+    SELECT messages_fts.message_id, 
            bm25(messages_fts) as score,
            snippet(messages_fts, 1, '[', ']', '...', 30) as snippet
     FROM messages_fts
-    WHERE messages_fts MATCH ?
+    JOIN messages m ON messages_fts.message_id = m.id
+    WHERE messages_fts MATCH ? AND m.deleted_at IS NULL
     """
     
     {query_sql, params} = if room_id do
-      query = base_query <> " AND room_id = ?"
+      query = base_query <> " AND m.room_id = ?"
       {query, [fts_query, room_id]}
     else
       {base_query, [fts_query]}
@@ -160,7 +162,7 @@ defmodule Emberchat.Chat.ChatSearch do
     
     # Add ordering and limit
     final_query = query_sql <> """
-    ORDER BY score DESC, inserted_at DESC
+    ORDER BY score DESC, m.inserted_at DESC
     LIMIT ?
     """
     
@@ -169,7 +171,7 @@ defmodule Emberchat.Chat.ChatSearch do
 
   defp load_messages_with_associations(message_ids) do
     messages = from(m in Message,
-      where: m.id in ^message_ids,
+      where: m.id in ^message_ids and is_nil(m.deleted_at),
       preload: [:user, parent_message: :user]
     )
     |> Repo.all()

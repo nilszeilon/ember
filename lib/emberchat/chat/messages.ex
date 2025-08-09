@@ -56,7 +56,8 @@ defmodule Emberchat.Chat.Messages do
   def list_room_messages(_scope, room_id, opts \\ []) do
     include_replies = Keyword.get(opts, :include_replies, false)
 
-    query =
+    # Base query for all messages in the room
+    base_query =
       from(m in Message,
         where: m.room_id == ^room_id,
         preload: [:user, :reactions, :pinned_by, parent_message: :user],
@@ -65,12 +66,21 @@ defmodule Emberchat.Chat.Messages do
 
     query =
       if include_replies do
-        query
+        base_query
       else
-        from(m in query, where: is_nil(m.parent_message_id))
+        from(m in base_query, where: is_nil(m.parent_message_id))
       end
 
-    messages = Repo.all(query)
+    # Get all messages (including deleted ones) to check reply counts
+    all_messages = Repo.all(query)
+    
+    # Filter out deleted messages that have no replies (reply_count = 0)
+    messages = Enum.filter(all_messages, fn message ->
+      case message.deleted_at do
+        nil -> true  # Not deleted, always show
+        _ -> message.reply_count > 0  # Deleted, only show if it has replies
+      end
+    end)
 
     # Add reaction summaries and thread messages to each message
     Enum.map(messages, fn message ->
@@ -78,7 +88,7 @@ defmodule Emberchat.Chat.Messages do
       
       # If this is a top-level message and has replies, fetch them
       thread_messages = if is_nil(message.parent_message_id) and message.reply_count > 0 do
-        list_thread_messages(nil, message.id)
+        list_thread_messages(nil, message.id, include_deleted: true)
       else
         []
       end
@@ -89,14 +99,24 @@ defmodule Emberchat.Chat.Messages do
     end)
   end
 
-  def list_thread_messages(_scope, parent_message_id) do
-    messages =
+  def list_thread_messages(_scope, parent_message_id, opts \\ []) do
+    include_deleted = Keyword.get(opts, :include_deleted, false)
+    
+    query =
       from(m in Message,
         where: m.parent_message_id == ^parent_message_id,
         preload: [:user, :reactions, :pinned_by, parent_message: :user],
         order_by: [asc: m.inserted_at]
       )
-      |> Repo.all()
+
+    query =
+      if include_deleted do
+        query
+      else
+        from(m in query, where: is_nil(m.deleted_at))
+      end
+
+    messages = Repo.all(query)
 
     # Add reaction summaries to each message
     Enum.map(messages, fn message ->
@@ -159,7 +179,7 @@ defmodule Emberchat.Chat.Messages do
   end
 
   @doc """
-  Updates a message.
+  Updates a message (internal use).
 
   ## Examples
 
@@ -188,7 +208,34 @@ defmodule Emberchat.Chat.Messages do
   end
 
   @doc """
-  Deletes a message.
+  Edits a message with edit tracking.
+
+  ## Examples
+
+      iex> edit_message(message, %{content: "new content"})
+      {:ok, %Message{}}
+
+      iex> edit_message(message, %{content: ""})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def edit_message(%Scope{} = scope, %Message{} = message, attrs) do
+    true = message.user_id == scope.user.id
+
+    with {:ok, edited_message = %Message{}} <-
+           message
+           |> Message.edit_changeset(attrs, scope)
+           |> Repo.update() do
+      # Regenerate embedding if content changed
+      Task.start(fn -> EmbeddingGenerator.generate_embedding_for_message(edited_message) end)
+
+      broadcast_message(scope, {:updated, edited_message})
+      {:ok, edited_message}
+    end
+  end
+
+  @doc """
+  Soft deletes a message.
 
   ## Examples
 
@@ -203,11 +250,12 @@ defmodule Emberchat.Chat.Messages do
     true = message.user_id == scope.user.id
 
     Repo.transaction(fn ->
-      with {:ok, deleted_message = %Message{}} <- Repo.delete(message) do
-        # Update parent message thread metadata if this was a reply
-        if deleted_message.parent_message_id do
-          decrement_thread_metadata(deleted_message.parent_message_id)
-        end
+      with {:ok, deleted_message = %Message{}} <- 
+             message
+             |> Message.soft_delete_changeset()
+             |> Repo.update() do
+        # Note: We don't decrement thread metadata for soft deletes
+        # to maintain thread structure and show placeholder messages
 
         # Remove from vector table asynchronously
         Task.start(fn -> EmbeddingGenerator.remove_from_vector_table(deleted_message.id) end)

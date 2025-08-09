@@ -48,6 +48,54 @@ defmodule EmberchatWeb.ChatLive.Messages do
     end
   end
 
+  def handle_event("edit_message", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    message = Enum.find(socket.assigns.messages, &(&1.id == message_id))
+    
+    if message && message.user_id == socket.assigns.current_scope.user.id && !message.deleted_at do
+      {:noreply, assign(socket, :editing_message, message)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel_edit", _params, socket) do
+    {:noreply, assign(socket, :editing_message, nil)}
+  end
+
+  def handle_event("save_edit", %{"message" => %{"content" => content}}, socket) do
+    editing_message = socket.assigns.editing_message
+    
+    if editing_message do
+      case Chat.edit_message(socket.assigns.current_scope, editing_message, %{content: content}) do
+        {:ok, _updated_message} ->
+          {:noreply, assign(socket, :editing_message, nil)}
+        
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("delete_message", %{"message_id" => message_id}, socket) do
+    message_id = String.to_integer(message_id)
+    message = Enum.find(socket.assigns.messages, &(&1.id == message_id))
+    
+    if message && message.user_id == socket.assigns.current_scope.user.id && !message.deleted_at do
+      case Chat.delete_message(socket.assigns.current_scope, message) do
+        {:ok, _deleted_message} ->
+          {:noreply, socket}
+        
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("find_similar", %{"message_id" => message_id}, socket) do
     message_id = String.to_integer(message_id)
 
@@ -147,7 +195,16 @@ defmodule EmberchatWeb.ChatLive.Messages do
 
   def handle_info({:deleted, %Message{} = message}, socket) do
     if socket.assigns.current_room && message.room_id == socket.assigns.current_room.id do
-      messages = Enum.reject(socket.assigns.messages, &(&1.id == message.id))
+      # For soft delete, update the message in place rather than removing it
+      messages =
+        Enum.map(socket.assigns.messages, fn m ->
+          if m.id == message.id do
+            message
+          else
+            m
+          end
+        end)
+        
       {:noreply, assign(socket, :messages, messages)}
     else
       {:noreply, socket}
