@@ -132,7 +132,13 @@ defmodule EmberchatWeb.ChatLive do
 
   @impl true
   def handle_params(_params, _url, socket) do
-    {:noreply, socket}
+    # Auto-select first room if no room is currently selected
+    if socket.assigns.current_room == nil && socket.assigns.rooms != [] do
+      first_room = List.first(socket.assigns.rooms)
+      {:noreply, push_patch(socket, to: ~p"/#{first_room}")}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Delegate message events to MessagesHelpers
