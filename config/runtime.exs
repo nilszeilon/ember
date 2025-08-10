@@ -121,4 +121,8 @@ if config_env() == :prod do
     from_address = System.get_env("FROM_EMAIL_ADDRESS") || "noreply@emberchat.org"
     config :emberchat, :from_email, {from_name, from_address}
   end
+
+  # Configure app name and domain for emails
+  config :emberchat, :app_name, System.get_env("APP_NAME") || "Emberchat"
+  config :emberchat, :app_domain, System.get_env("APP_DOMAIN") || host
 end
