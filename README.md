@@ -2,14 +2,18 @@
 
 **A modern, web-based team communication platform built with Phoenix LiveView**
 
-Ember is an open-source alternative mainstream chat apps like slack or discord. 
+Ember is an open-source alternative to mainstream chat apps like slack or discord. 
+
+For a live demo visit [emberchat.org](https://emberchat.org)
 
 ## Features
 - [x] chat with rooms and threads
-- [x] search for messages
+- [x] fast search
 - [x] emoji's & reactions
-- [x] pin messages
 - [x] keyboard shortcuts with vim motions
+- [x] guides to deploy at DEPLOY.md
+- [x] pin messages
+- [x] threads
 
 ## TODO
 - [ ] read messages state / jump to new
@@ -18,10 +22,11 @@ Ember is an open-source alternative mainstream chat apps like slack or discord.
 - [ ] improve search
 - [ ] room whiteboard / tldraw (?)
 - [ ] personal rooms / private rooms with invite 
+- [ ] easy to add bots
+- [ ] voice calls? 
 
 ## TODO NEED
 - [ ] notifications / tag people
-- [ ] onboarding / guides how to deploy
 
 
 ## License
