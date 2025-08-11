@@ -249,46 +249,76 @@ defmodule EmberchatWeb.ChatComponents do
   end
 
   def chat_header(assigns) do
+    assigns = assign_new(assigns, :pinned_messages, fn -> [] end)
+    
     ~H"""
-    <div class="h-16 bg-base-200 shadow-sm flex items-center px-4">
-      <!-- Mobile menu button -->
-      <button class="md:hidden mr-2" phx-click="toggle_drawer">
-        <.icon name="hero-bars-3" class="h-6 w-6" />
-      </button>
-      <div class="flex-1">
-        <div>
-          <h2 class="text-sm md:text-lg font-bold flex items-center gap-2">
-            <div class="avatar avatar-placeholder">
-              <div class="bg-neutral text-neutral-content rounded-full w-8">
-                <span class="text-xs">{Map.get(@room, :emoji, "💬")}</span>
+    <div class="bg-base-200 shadow-sm flex flex-col">
+      <!-- Main header row -->
+      <div class="h-16 flex items-center px-4">
+        <!-- Mobile menu button -->
+        <button class="md:hidden mr-2" phx-click="toggle_drawer">
+          <.icon name="hero-bars-3" class="h-6 w-6" />
+        </button>
+        <div class="flex-1">
+          <div>
+            <h2 class="text-sm md:text-lg font-bold flex items-center gap-2">
+              <div class="avatar avatar-placeholder">
+                <div class="bg-neutral text-neutral-content rounded-full w-8">
+                  <span class="text-xs">{Map.get(@room, :emoji, "💬")}</span>
+                </div>
               </div>
-            </div>
-            {@room.name}
-            <%= if @room.is_private do %>
-              <span class="text-xs opacity-60">🔒</span>
+              {@room.name}
+              <%= if @room.is_private do %>
+                <span class="text-xs opacity-60">🔒</span>
+              <% end %>
+            </h2>
+            <%= if @room.description do %>
+              <p class="text-sm text-base-content/60 ml-10">{@room.description}</p>
             <% end %>
-          </h2>
-          <%= if @room.description do %>
-            <p class="text-sm text-base-content/60 ml-10">{@room.description}</p>
-          <% end %>
+          </div>
         </div>
+        
+        <!-- Mobile search button -->
+        <button class="md:hidden mr-2" phx-click="show_search_modal">
+          <.icon name="hero-magnifying-glass" class="h-6 w-6" />
+        </button>
+
+        <%= if @current_user_id == @room.user_id do %>
+          <div>
+            <button
+              phx-click="show_edit_room_modal"
+              phx-value-room_id={@room.id}
+              class="btn btn-sm btn-ghost gap-2"
+            >
+              <.icon name="hero-pencil" class="h-4 w-4" />
+              <span class="hidden sm:inline">Edit</span>
+            </button>
+          </div>
+        <% end %>
       </div>
       
-      <!-- Mobile search button -->
-      <button class="md:hidden mr-2" phx-click="show_search_modal">
-        <.icon name="hero-magnifying-glass" class="h-6 w-6" />
-      </button>
-
-      <%= if @current_user_id == @room.user_id do %>
-        <div>
-          <button
-            phx-click="show_edit_room_modal"
-            phx-value-room_id={@room.id}
-            class="btn btn-sm btn-ghost gap-2"
-          >
-            <.icon name="hero-pencil" class="h-4 w-4" />
-            <span class="hidden sm:inline">Edit</span>
-          </button>
+      <!-- Pinned Messages Section - Sticky under header -->
+      <%= if @pinned_messages != [] do %>
+        <div class="bg-base-100 border-t border-base-300 px-4 py-2">
+          <div class="flex items-center gap-2 text-xs text-base-content/60 mb-2">
+            <.icon name="hero-bookmark-solid" class="h-3 w-3" />
+            <span>Pinned Messages</span>
+          </div>
+          <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <%= for pinned_message <- @pinned_messages do %>
+              <button
+                class="flex-shrink-0 px-3 py-1 bg-base-200 hover:bg-base-300 rounded-full text-xs font-medium border border-base-300 hover:border-primary/20 transition-colors cursor-pointer"
+                phx-click="scroll_to_pinned"
+                phx-value-message_id={pinned_message.id}
+              >
+                <%= if pinned_message.pin_slug do %>
+                  #{pinned_message.pin_slug}
+                <% else %>
+                  Pinned message
+                <% end %>
+              </button>
+            <% end %>
+          </div>
         </div>
       <% end %>
     </div>

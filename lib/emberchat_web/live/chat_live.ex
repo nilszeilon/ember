@@ -420,7 +420,7 @@ defmodule EmberchatWeb.ChatLive do
       <div class="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
         <%= if @current_room do %>
           <!-- Chat header -->
-          <.chat_header room={@current_room} current_user_id={@current_scope.user.id} />
+          <.chat_header room={@current_room} current_user_id={@current_scope.user.id} pinned_messages={@pinned_messages} />
           
     <!-- Messages container - takes remaining height -->
           <div
@@ -429,31 +429,6 @@ defmodule EmberchatWeb.ChatLive do
             phx-hook="MessageScroll"
             {if @highlight_message_id, do: [{"data-highlight", @highlight_message_id}], else: []}
           >
-            <!-- Pinned Messages Section -->
-            <%= if @pinned_messages != [] do %>
-              <div class="mb-4 px-2">
-                <div class="flex items-center gap-2 text-xs text-base-content/60 mb-2">
-                  <.icon name="hero-bookmark-solid" class="h-3 w-3" />
-                  <span>Pinned</span>
-                </div>
-                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                  <%= for pinned_message <- @pinned_messages do %>
-                    <button
-                      class="flex-shrink-0 px-3 py-1 bg-base-200 hover:bg-base-300 rounded-full text-xs font-medium border border-base-300 hover:border-primary/20 transition-colors cursor-pointer"
-                      phx-click="scroll_to_pinned"
-                      phx-value-message_id={pinned_message.id}
-                    >
-                      <%= if pinned_message.pin_slug do %>
-                        #{pinned_message.pin_slug}
-                      <% else %>
-                        Pinned message
-                      <% end %>
-                    </button>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
             <div class="space-y-4">
               <%= for message <- @messages do %>
                 <.message_bubble
