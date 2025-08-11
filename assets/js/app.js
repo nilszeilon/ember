@@ -179,6 +179,36 @@ const hooks = {
         this.pushEvent("highlight_message", {message_id: messageId})
       }
     }
+  },
+  MessageInput: {
+    mounted() {
+      const textarea = this.el.querySelector('textarea[name="message[content]"]')
+      if (!textarea) return
+      
+      // Handle key events for Shift+Enter functionality
+      this.handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault()
+          
+          // Find the form and submit it
+          const form = textarea.closest('form')
+          if (form) {
+            const event = new Event('submit', { bubbles: true, cancelable: true })
+            form.dispatchEvent(event)
+          }
+        }
+      }
+      
+      // Add event listener only for key handling
+      textarea.addEventListener('keydown', this.handleKeyDown)
+    },
+    
+    destroyed() {
+      const textarea = this.el.querySelector('textarea[name="message[content]"]')
+      if (textarea) {
+        textarea.removeEventListener('keydown', this.handleKeyDown)
+      }
+    }
   }
 }
 
@@ -198,7 +228,7 @@ liveSocket.connect()
 
 // Handle focus_message_input event from server
 window.addEventListener("phx:focus_message_input", () => {
-  const messageInput = document.querySelector('input[name="message[content]"]')
+  const messageInput = document.querySelector('textarea[name="message[content]"]')
   if (messageInput) {
     messageInput.focus()
   }

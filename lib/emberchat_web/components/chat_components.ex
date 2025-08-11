@@ -60,7 +60,7 @@ defmodule EmberchatWeb.ChatComponents do
     assigns = assign_new(assigns, :show_all_reactions, fn -> false end)
     assigns = assign_new(assigns, :thread_expanded, fn -> false end)
     assigns = assign_new(assigns, :editing_message, fn -> nil end)
-    
+
     ~H"""
     <div id={"message-#{@message.id}"}>
       <%= if @message.is_pinned do %>
@@ -75,7 +75,6 @@ defmodule EmberchatWeb.ChatComponents do
           <% end %>
         </div>
       <% end %>
-      
 
       <div class="flex gap-3">
         <div class="flex-shrink-0">
@@ -87,7 +86,7 @@ defmodule EmberchatWeb.ChatComponents do
             </div>
           </div>
         </div>
-        
+
         <div class="flex-1 min-w-0">
           <div class="mb-1">
             <span class="font-medium">{@message.user.username}</span>
@@ -95,24 +94,24 @@ defmodule EmberchatWeb.ChatComponents do
               {Calendar.strftime(@message.inserted_at, "%I:%M %p")}
             </time>
           </div>
-          
+
           <%= if @editing_message && @editing_message.id == @message.id do %>
             <div class="w-full">
               <.form for={%{}} phx-submit="save_edit" class="flex gap-2">
-                <input
-                  type="text"
+                <textarea
                   name="message[content]"
-                  value={@message.content}
-                  class="input input-bordered flex-1 input-sm focus:input-primary"
+                  class="textarea textarea-bordered flex-1 textarea-sm focus:textarea-primary resize-none min-h-[2.5rem]"
                   required
                   autofocus
-                />
-                <button type="submit" class="btn btn-primary btn-sm">
-                  <.icon name="hero-check" class="h-4 w-4" />
-                </button>
-                <button type="button" phx-click="cancel_edit" class="btn btn-ghost btn-sm">
-                  <.icon name="hero-x-mark" class="h-4 w-4" />
-                </button>
+                ><%= @message.content %></textarea>
+                <div class="flex flex-col gap-1">
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <.icon name="hero-check" class="h-4 w-4" />
+                  </button>
+                  <button type="button" phx-click="cancel_edit" class="btn btn-ghost btn-sm">
+                    <.icon name="hero-x-mark" class="h-4 w-4" />
+                  </button>
+                </div>
               </.form>
             </div>
           <% else %>
@@ -120,14 +119,15 @@ defmodule EmberchatWeb.ChatComponents do
               <div class={[
                 "rounded-2xl px-4 py-2 group relative transition-all duration-500",
                 @message.user_id == @current_user_id && "bg-primary text-primary-content",
-                @message.user_id != @current_user_id && "bg-transparent border border-base-content/20 text-base-content",
+                @message.user_id != @current_user_id &&
+                  "bg-transparent border border-base-content/20 text-base-content",
                 @highlighted && "!bg-yellow-100 !text-gray-900 border-4 border-yellow-400 shadow-lg"
               ]}>
                 <span class={[
                   "break-words",
                   @message.deleted_at && "italic opacity-60"
                 ]}>
-                  {Emberchat.Chat.Message.display_content(@message)}
+                  {Emberchat.Chat.Message.formatted_display_content(@message)}
                 </span>
                 <%= if @message.edited_at do %>
                   <span class="text-xs opacity-50 ml-2">(edited)</span>
@@ -142,16 +142,16 @@ defmodule EmberchatWeb.ChatComponents do
           <% end %>
         </div>
       </div>
-      
+
       <%= if !@message.deleted_at do %>
-        <.message_reactions 
-          reactions={Map.get(@message, :reaction_summary, [])} 
+        <.message_reactions
+          reactions={Map.get(@message, :reaction_summary, [])}
           message_id={@message.id}
           current_user_id={@current_user_id}
           show_all={@show_all_reactions}
         />
       <% end %>
-      
+
       <%= if @message.reply_count > 0 do %>
         <div class="mt-2 ml-14">
           <button
@@ -159,9 +159,14 @@ defmodule EmberchatWeb.ChatComponents do
             phx-value-message_id={@message.id}
             class="btn btn-xs btn-ghost gap-1 text-primary hover:bg-primary/10"
           >
-            <.icon name={if @thread_expanded, do: "hero-chevron-down", else: "hero-chevron-right"} class="h-3 w-3" />
+            <.icon
+              name={if @thread_expanded, do: "hero-chevron-down", else: "hero-chevron-right"}
+              class="h-3 w-3"
+            />
             <.icon name="hero-chat-bubble-left-ellipsis" class="h-3 w-3" />
-            <span>{@message.reply_count} {if @message.reply_count == 1, do: "reply", else: "replies"}</span>
+            <span>
+              {@message.reply_count} {if @message.reply_count == 1, do: "reply", else: "replies"}
+            </span>
             <%= if @message.last_reply_at do %>
               <span class="text-xs opacity-70">
                 · {Calendar.strftime(@message.last_reply_at, "%I:%M %p")}
@@ -179,12 +184,13 @@ defmodule EmberchatWeb.ChatComponents do
                     <div class="avatar avatar-placeholder">
                       <div class="w-8 rounded-full bg-neutral text-primary-content placeholder">
                         <span class="text-sm">
-                          {String.first(thread_message.user.username || thread_message.user.email) |> String.upcase()}
+                          {String.first(thread_message.user.username || thread_message.user.email)
+                          |> String.upcase()}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div class="flex-1 min-w-0">
                     <div class="mb-1">
                       <span class="font-medium text-sm">{thread_message.user.username}</span>
@@ -192,29 +198,33 @@ defmodule EmberchatWeb.ChatComponents do
                         {Calendar.strftime(thread_message.inserted_at, "%I:%M %p")}
                       </time>
                     </div>
-                    
+
                     <div class="inline-block">
                       <div class="bg-base-200 text-base-content rounded-2xl px-4 py-2 group relative transition-all duration-200">
                         <span class={[
                           "break-words text-sm",
                           thread_message.deleted_at && "italic opacity-60"
                         ]}>
-                          {Emberchat.Chat.Message.display_content(thread_message)}
+                          {Emberchat.Chat.Message.formatted_display_content(thread_message)}
                         </span>
                         <%= if thread_message.edited_at do %>
                           <span class="text-xs opacity-50 ml-2">(edited)</span>
                         <% end %>
                         <%= if !thread_message.deleted_at do %>
                           <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <.message_actions_menu message={thread_message} parent_message_id={@message.id} current_user_id={@current_user_id} />
+                            <.message_actions_menu
+                              message={thread_message}
+                              parent_message_id={@message.id}
+                              current_user_id={@current_user_id}
+                            />
                           </div>
                         <% end %>
                       </div>
                     </div>
-                    
+
                     <%= if !thread_message.deleted_at do %>
-                      <.message_reactions 
-                        reactions={Map.get(thread_message, :reaction_summary, [])} 
+                      <.message_reactions
+                        reactions={Map.get(thread_message, :reaction_summary, [])}
                         message_id={thread_message.id}
                         current_user_id={@current_user_id}
                         show_all={false}
@@ -238,7 +248,9 @@ defmodule EmberchatWeb.ChatComponents do
         <.icon name="hero-arrow-uturn-left" class="h-4 w-4" />
         <div class="flex-1">
           <div class="text-sm font-semibold">Replying to {@replying_to.user.username}</div>
-          <div class="text-xs opacity-70 truncate">{@replying_to.content}</div>
+          <div class="text-xs opacity-70 truncate whitespace-nowrap overflow-hidden">
+            {String.replace(@replying_to.content, "\n", " ")}
+          </div>
         </div>
         <button class="btn btn-ghost btn-circle btn-sm" phx-click="cancel_reply" title="Cancel reply">
           <.icon name="hero-x-mark" class="h-4 w-4" />
@@ -250,7 +262,7 @@ defmodule EmberchatWeb.ChatComponents do
 
   def chat_header(assigns) do
     assigns = assign_new(assigns, :pinned_messages, fn -> [] end)
-    
+
     ~H"""
     <div class="bg-base-200 shadow-sm flex flex-col">
       <!-- Main header row -->
@@ -278,7 +290,7 @@ defmodule EmberchatWeb.ChatComponents do
           </div>
         </div>
         
-        <!-- Mobile search button -->
+    <!-- Mobile search button -->
         <button class="md:hidden mr-2" phx-click="show_search_modal">
           <.icon name="hero-magnifying-glass" class="h-6 w-6" />
         </button>
@@ -297,7 +309,7 @@ defmodule EmberchatWeb.ChatComponents do
         <% end %>
       </div>
       
-      <!-- Pinned Messages Section - Sticky under header -->
+    <!-- Pinned Messages Section - Sticky under header -->
       <%= if @pinned_messages != [] do %>
         <div class="bg-base-100 border-t border-base-300 px-4 py-2">
           <div class="flex items-center gap-2 text-xs text-base-content/60 mb-2">
@@ -372,9 +384,10 @@ defmodule EmberchatWeb.ChatComponents do
               @drawer_open && "w-8 h-8",
               !@drawer_open && "w-10 h-10"
             ]}>
-              <.icon name="hero-magnifying-glass" class={
-                if @drawer_open, do: "h-4 w-4", else: "h-5 w-5"
-              } />
+              <.icon
+                name="hero-magnifying-glass"
+                class={if @drawer_open, do: "h-4 w-4", else: "h-5 w-5"}
+              />
             </div>
           </div>
           <%= if @drawer_open do %>
@@ -384,7 +397,7 @@ defmodule EmberchatWeb.ChatComponents do
           <% end %>
         </button>
       </div>
-
+      
     <!-- Room List -->
       <div class="flex flex-col md:flex-1 overflow-y-auto px-2 py-2 md:py-0">
         <%= if @drawer_open do %>
@@ -466,33 +479,32 @@ defmodule EmberchatWeb.ChatComponents do
 
   def message_input(assigns) do
     assigns = assign_new(assigns, :draft, fn -> "" end)
-    
+
     ~H"""
-    <div class="p-4 bg-base-200">
+    <div class=" p-2 bg-base-200" phx-hook="MessageInput" id="message-input">
       <.reply_preview replying_to={@replying_to} />
 
-      <.form for={%{}} phx-submit="send_message" phx-change="update_draft" class="join w-full">
-        <div class="form-control flex-1">
-          <input
-            type="text"
+      <.form for={%{}} phx-submit="send_message" phx-change="update_draft" class="w-full">
+        <div class="relative">
+          <textarea
             name="message[content]"
-            value={@draft}
+            rows="1"
             placeholder={
               if @replying_to,
-                do: "Reply to #{@replying_to.user.username}...",
-                else: "Type a message..."
+                do: "Reply to #{@replying_to.user.username}... (Shift+Enter for new line)",
+                else: "Type a message... (Shift+Enter for new line)"
             }
-            class="input input-bordered join-item w-full focus:input-primary"
+            class="textarea textarea-bordered w-full pr-20 focus:textarea-primary resize-none"
             required
-          />
+          ><%= @draft %></textarea>
+          <input type="hidden" name="message[room_id]" value={@room_id} />
+          <button 
+            type="submit" 
+            class="absolute right-2 bottom-2 btn btn-primary btn-sm rounded-full w-12 h-8 min-h-8 p-0 flex items-center justify-center"
+          >
+            <.icon name="hero-paper-airplane" class="h-4 w-4" />
+          </button>
         </div>
-        <input type="hidden" name="message[room_id]" value={@room_id} />
-        <button type="submit" class="btn btn-primary join-item">
-          <.icon name="hero-paper-airplane" class="h-5 w-5" />
-          <span class="hidden sm:inline ml-2">
-            {if @replying_to, do: "Reply", else: "Send"}
-          </span>
-        </button>
       </.form>
     </div>
     """
@@ -576,13 +588,17 @@ defmodule EmberchatWeb.ChatComponents do
     </div>
     """
   end
-  
+
   def search_modal(assigns) do
     ~H"""
-    <div class={[
-      "modal",
-      @show && "modal-open"
-    ]} phx-hook="SearchModal" id="search-modal">
+    <div
+      class={[
+        "modal",
+        @show && "modal-open"
+      ]}
+      phx-hook="SearchModal"
+      id="search-modal"
+    >
       <div class="modal-box max-w-4xl w-11/12 max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold text-xl">Search Messages</h3>
@@ -590,8 +606,8 @@ defmodule EmberchatWeb.ChatComponents do
             <.icon name="hero-x-mark" class="h-5 w-5" />
           </button>
         </div>
-
-        <!-- Search Form -->
+        
+    <!-- Search Form -->
         <form phx-submit="search" class="space-y-4 mb-4">
           <div class="relative">
             <input
@@ -605,18 +621,14 @@ defmodule EmberchatWeb.ChatComponents do
               autofocus
             />
             
-            <!-- Search/Clear Buttons -->
+    <!-- Search/Clear Buttons -->
             <div class="absolute right-2 top-2 flex space-x-2">
               <%= if @query != "" do %>
-                <button
-                  type="button"
-                  phx-click="clear_search"
-                  class="btn btn-sm btn-ghost"
-                >
+                <button type="button" phx-click="clear_search" class="btn btn-sm btn-ghost">
                   Clear
                 </button>
               <% end %>
-              
+
               <button
                 type="submit"
                 disabled={@searching or String.length(@query) < 2}
@@ -631,7 +643,7 @@ defmodule EmberchatWeb.ChatComponents do
               </button>
             </div>
             
-            <!-- Suggestions Dropdown -->
+    <!-- Suggestions Dropdown -->
             <%= if @show_suggestions and length(@suggestions) > 0 do %>
               <div class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
                 <%= for suggestion <- @suggestions do %>
@@ -641,14 +653,14 @@ defmodule EmberchatWeb.ChatComponents do
                     phx-value-suggestion={suggestion}
                     class="w-full px-4 py-2 text-left hover:bg-base-200 first:rounded-t-lg last:rounded-b-lg text-sm"
                   >
-                    <%= suggestion %>
+                    {suggestion}
                   </button>
                 <% end %>
               </div>
             <% end %>
           </div>
-
-          <!-- Search Filters -->
+          
+    <!-- Search Filters -->
           <details class="text-sm">
             <summary class="cursor-pointer text-base-content/70 hover:text-base-content">
               Advanced Options
@@ -664,16 +676,16 @@ defmodule EmberchatWeb.ChatComponents do
                     <option value="">All Rooms</option>
                     <%= for room <- @rooms do %>
                       <option value={room.id} selected={@selected_room == room.id}>
-                        <%= room.emoji %> <%= room.name %>
+                        {room.emoji} {room.name}
                       </option>
                     <% end %>
                   </select>
                 </div>
-
-                <!-- Similarity Weight -->
+                
+    <!-- Similarity Weight -->
                 <div>
                   <label class="block text-sm font-medium mb-1">
-                    Similarity Weight: <%= @similarity_weight %>
+                    Similarity Weight: {@similarity_weight}
                   </label>
                   <input
                     type="range"
@@ -685,11 +697,11 @@ defmodule EmberchatWeb.ChatComponents do
                     class="range range-primary range-sm"
                   />
                 </div>
-
-                <!-- Recency Weight -->
+                
+    <!-- Recency Weight -->
                 <div>
                   <label class="block text-sm font-medium mb-1">
-                    Recency Weight: <%= @recency_weight %>
+                    Recency Weight: {@recency_weight}
                   </label>
                   <input
                     type="range"
@@ -717,38 +729,40 @@ defmodule EmberchatWeb.ChatComponents do
             </div>
           </details>
         </form>
-
-        <!-- Search Results -->
+        
+    <!-- Search Results -->
         <div class="flex-1 overflow-auto">
           <!-- Search Stats -->
           <%= if @search_stats do %>
             <div class="mb-4 text-sm text-base-content/70">
               <%= if @search_stats.search_type == "semantic" do %>
-                Found <%= @search_stats.total_results %> messages for "<%= @search_stats.query %>" 
-                in <%= @search_stats.search_time_ms %>ms
+                Found {@search_stats.total_results} messages for "{@search_stats.query}"
+                in {@search_stats.search_time_ms}ms
               <% else %>
-                Found <%= @search_stats.total_results %> messages similar to:
+                Found {@search_stats.total_results} messages similar to:
                 <div class="mt-1 p-2 bg-base-200 rounded text-xs">
-                  <%= @search_stats.original_message.content %>
+                  {@search_stats.original_message.content}
                 </div>
               <% end %>
             </div>
           <% end %>
-
-          <!-- Error Display -->
+          
+    <!-- Error Display -->
           <%= if @search_error do %>
             <div class="alert alert-error mb-4">
               <.icon name="hero-exclamation-triangle" class="h-5 w-5" />
-              <span><%= @search_error %></span>
+              <span>{@search_error}</span>
             </div>
           <% end %>
-
-          <!-- Results List -->
+          
+    <!-- Results List -->
           <%= if length(@search_results) > 0 do %>
             <div class="space-y-3">
               <%= for message <- @search_results do %>
-                <div class="card bg-base-100 border border-base-300 hover:border-primary/50 transition-all cursor-pointer"
-                     phx-click={JS.navigate(~p"/#{message.room_id}?highlight=#{message.id}")}>
+                <div
+                  class="card bg-base-100 border border-base-300 hover:border-primary/50 transition-all cursor-pointer"
+                  phx-click={JS.navigate(~p"/#{message.room_id}?highlight=#{message.id}")}
+                >
                   <div class="card-body p-4">
                     <!-- Message Header -->
                     <div class="flex items-center justify-between mb-2">
@@ -756,23 +770,24 @@ defmodule EmberchatWeb.ChatComponents do
                         <div class="avatar avatar-placeholder">
                           <div class="bg-neutral text-neutral-content rounded-full w-6">
                             <span class="text-xs">
-                              <%= String.first(message.user.username || message.user.email) |> String.upcase() %>
+                              {String.first(message.user.username || message.user.email)
+                              |> String.upcase()}
                             </span>
                           </div>
                         </div>
                         <span class="font-medium text-sm">
-                          <%= message.user.username || message.user.email %>
+                          {message.user.username || message.user.email}
                         </span>
                         <span class="text-xs text-base-content/60">
-                          <%= Calendar.strftime(message.inserted_at, "%b %d, %Y at %I:%M %p") %>
+                          {Calendar.strftime(message.inserted_at, "%b %d, %Y at %I:%M %p")}
                         </span>
                         <%= if room = Enum.find(@rooms, &(&1.id == message.room_id)) do %>
                           <span class="badge badge-sm">
-                            <%= room.emoji %> <%= room.name %>
+                            {room.emoji} {room.name}
                           </span>
                         <% end %>
                       </div>
-                      
+
                       <button
                         phx-click="find_similar"
                         phx-value-message_id={message.id}
@@ -782,22 +797,24 @@ defmodule EmberchatWeb.ChatComponents do
                         Find Similar
                       </button>
                     </div>
-
-                    <!-- Message Content -->
-                    <div class="text-sm">
-                      <%= message.content %>
+                    
+    <!-- Message Content -->
+                    <div class="text-sm break-words">
+                      {Emberchat.Chat.Message.formatted_display_content(message)}
                     </div>
-
-                    <!-- Thread Info -->
+                    
+    <!-- Thread Info -->
                     <%= if message.parent_message do %>
                       <div class="text-xs text-base-content/60 bg-base-200 p-2 rounded mt-2">
-                        Reply to: <%= String.slice(message.parent_message.content, 0, 100) %>...
+                        Reply to: {String.slice(message.parent_message.content, 0, 100)}...
                       </div>
                     <% end %>
 
                     <%= if message.reply_count > 0 do %>
                       <div class="text-xs text-primary mt-1">
-                        <%= message.reply_count %> <%= if message.reply_count == 1, do: "reply", else: "replies" %>
+                        {message.reply_count} {if message.reply_count == 1,
+                          do: "reply",
+                          else: "replies"}
                       </div>
                     <% end %>
                   </div>
@@ -807,16 +824,24 @@ defmodule EmberchatWeb.ChatComponents do
           <% else %>
             <%= if @query != "" and not @searching and @search_stats do %>
               <div class="text-center py-8 text-base-content/60">
-                <.icon name="hero-magnifying-glass" class="mx-auto h-12 w-12 mb-4 text-base-content/40" />
+                <.icon
+                  name="hero-magnifying-glass"
+                  class="mx-auto h-12 w-12 mb-4 text-base-content/40"
+                />
                 <p>No messages found for your search.</p>
                 <p class="text-xs mt-1">Try different keywords or adjust the search filters.</p>
               </div>
             <% else %>
               <div class="text-center py-12 text-base-content/60">
-                <.icon name="hero-magnifying-glass" class="mx-auto h-16 w-16 mb-4 text-base-content/40" />
+                <.icon
+                  name="hero-magnifying-glass"
+                  class="mx-auto h-16 w-16 mb-4 text-base-content/40"
+                />
                 <h4 class="text-lg font-medium text-base-content mb-2">Semantic Search</h4>
                 <p>Search through messages using natural language.</p>
-                <p class="text-sm mt-1">Try queries like "machine learning discussion" or "project deadlines"</p>
+                <p class="text-sm mt-1">
+                  Try queries like "machine learning discussion" or "project deadlines"
+                </p>
               </div>
             <% end %>
           <% end %>
@@ -829,11 +854,14 @@ defmodule EmberchatWeb.ChatComponents do
 
   def thread_view(assigns) do
     ~H"""
-    <div class={[
-      "fixed inset-y-0 right-0 w-96 bg-base-100 shadow-2xl transform transition-transform duration-300 z-50",
-      @show && "translate-x-0",
-      !@show && "translate-x-full"
-    ]} phx-click-away="hide_thread">
+    <div
+      class={[
+        "fixed inset-y-0 right-0 w-96 bg-base-100 shadow-2xl transform transition-transform duration-300 z-50",
+        @show && "translate-x-0",
+        !@show && "translate-x-full"
+      ]}
+      phx-click-away="hide_thread"
+    >
       <div class="flex flex-col h-full" phx-click="noop">
         <!-- Thread Header -->
         <div class="navbar bg-base-200 shadow-sm px-4">
@@ -847,14 +875,15 @@ defmodule EmberchatWeb.ChatComponents do
           </div>
         </div>
         
-        <!-- Original Message -->
+    <!-- Original Message -->
         <%= if @parent_message do %>
           <div class="p-4 bg-base-200 border-b">
             <div class="chat chat-start">
               <div class="chat-image avatar avatar-placeholder">
                 <div class="w-8 rounded-full bg-neutral text-primary-content placeholder">
                   <span class="text-sm">
-                    {String.first(@parent_message.user.username || @parent_message.user.email) |> String.upcase()}
+                    {String.first(@parent_message.user.username || @parent_message.user.email)
+                    |> String.upcase()}
                   </span>
                 </div>
               </div>
@@ -871,7 +900,7 @@ defmodule EmberchatWeb.ChatComponents do
           </div>
         <% end %>
         
-        <!-- Thread Messages -->
+    <!-- Thread Messages -->
         <div class="flex-1 overflow-y-auto p-4 space-y-4" id="thread-messages">
           <%= for message <- @thread_messages do %>
             <div class="chat chat-start">
@@ -895,9 +924,14 @@ defmodule EmberchatWeb.ChatComponents do
           <% end %>
         </div>
         
-        <!-- Thread Input -->
+    <!-- Thread Input -->
         <div class="p-4 bg-base-200">
-          <.form for={%{}} phx-submit="send_thread_message" phx-change="update_thread_draft" class="join w-full">
+          <.form
+            for={%{}}
+            phx-submit="send_thread_message"
+            phx-change="update_thread_draft"
+            class="join w-full"
+          >
             <div class="form-control flex-1">
               <input
                 type="text"
@@ -948,7 +982,7 @@ defmodule EmberchatWeb.ChatComponents do
 
   def message_reactions(assigns) do
     assigns = assign_new(assigns, :show_all, fn -> false end)
-    
+
     ~H"""
     <%= if length(@reactions) > 0 do %>
       <div class="mt-2 ml-14">
@@ -966,7 +1000,7 @@ defmodule EmberchatWeb.ChatComponents do
               ]}
               title={
                 reaction.users
-                |> Enum.map(& &1.username || &1.email)
+                |> Enum.map(&(&1.username || &1.email))
                 |> Enum.join(", ")
               }
             >
@@ -974,7 +1008,7 @@ defmodule EmberchatWeb.ChatComponents do
               <span class="text-xs font-normal">{reaction.count}</span>
             </button>
           <% end %>
-          
+
           <%= if length(@reactions) > 10 && !@show_all do %>
             <button
               phx-click="toggle_show_all_reactions"
@@ -985,7 +1019,7 @@ defmodule EmberchatWeb.ChatComponents do
               <span class="text-xs">+{length(@reactions) - 10} more</span>
             </button>
           <% end %>
-          
+
           <%= if @show_all && length(@reactions) > 10 do %>
             <button
               phx-click="toggle_show_all_reactions"
@@ -1014,7 +1048,7 @@ defmodule EmberchatWeb.ChatComponents do
     >
       <div class="modal-box max-w-2xl">
         <h3 class="font-bold text-lg mb-4">Keyboard Shortcuts</h3>
-        
+
         <div class="space-y-6">
           <div>
             <h4 class="font-semibold text-sm mb-2 text-base-content/70">Navigation</h4>
@@ -1053,7 +1087,7 @@ defmodule EmberchatWeb.ChatComponents do
               </div>
             </div>
           </div>
-          
+
           <div>
             <h4 class="font-semibold text-sm mb-2 text-base-content/70">Actions</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -1079,18 +1113,14 @@ defmodule EmberchatWeb.ChatComponents do
               </div>
             </div>
           </div>
-          
+
           <div class="text-sm text-base-content/60 mt-4">
             <p>Note: Keyboard shortcuts are disabled when typing in input fields.</p>
           </div>
         </div>
-        
+
         <div class="modal-action">
-          <button
-            type="button"
-            class="btn btn-sm"
-            phx-click="close_keyboard_shortcuts_modal"
-          >
+          <button type="button" class="btn btn-sm" phx-click="close_keyboard_shortcuts_modal">
             Close
           </button>
         </div>
@@ -1101,73 +1131,80 @@ defmodule EmberchatWeb.ChatComponents do
 
   def message_actions_menu(assigns) do
     assigns = assign_new(assigns, :parent_message_id, fn -> nil end)
-    
+
     ~H"""
     <div class="dropdown dropdown-right">
-      <label tabindex="0" class="btn btn-circle btn-xs bg-base-100 hover:bg-base-content  border border-base-content/20 shadow-sm" title="Message actions">
+      <label
+        tabindex="0"
+        class="btn btn-circle btn-xs bg-base-100 hover:bg-base-content  border border-base-content/20 shadow-sm"
+        title="Message actions"
+      >
         <.icon name="hero-ellipsis-horizontal" class="h-3 w-3" />
       </label>
-      <ul tabindex="0" class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-48 text-neutral">
+      <ul
+        tabindex="0"
+        class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-48 text-neutral"
+      >
+        <li>
+          <button
+            phx-click="reply_to"
+            phx-value-message_id={@parent_message_id || @message.id}
+            class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded"
+          >
+            <.icon name="hero-arrow-uturn-left" class="h-4 w-4" /> Reply
+          </button>
+        </li>
+        <li>
+          <button
+            phx-click="toggle_pin"
+            phx-value-message_id={@message.id}
+            class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-neutral"
+          >
+            <.icon
+              name={if @message.is_pinned, do: "hero-bookmark-solid", else: "hero-bookmark"}
+              class="h-4 w-4"
+            />
+            {if @message.is_pinned, do: "Unpin", else: "Pin"}
+          </button>
+        </li>
+        <%= if @message.user_id == @current_user_id && !@message.deleted_at do %>
           <li>
             <button
-              phx-click="reply_to"
-              phx-value-message_id={@parent_message_id || @message.id}
-              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded"
-            >
-              <.icon name="hero-arrow-uturn-left" class="h-4 w-4" />
-              Reply
-            </button>
-          </li>
-          <li>
-            <button
-              phx-click="toggle_pin"
+              phx-click="edit_message"
               phx-value-message_id={@message.id}
-              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-neutral"
+              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-info"
             >
-              <.icon name={if @message.is_pinned, do: "hero-bookmark-solid", else: "hero-bookmark"} class="h-4 w-4" />
-              {if @message.is_pinned, do: "Unpin", else: "Pin"}
+              <.icon name="hero-pencil" class="h-4 w-4" /> Edit
             </button>
           </li>
-          <%= if @message.user_id == @current_user_id && !@message.deleted_at do %>
-            <li>
-              <button
-                phx-click="edit_message"
-                phx-value-message_id={@message.id}
-                class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-info"
-              >
-                <.icon name="hero-pencil" class="h-4 w-4" />
-                Edit
-              </button>
-            </li>
-            <li>
-              <button
-                phx-click="delete_message"
-                phx-value-message_id={@message.id}
-                class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-error"
-              >
-                <.icon name="hero-trash" class="h-4 w-4" />
-                Delete
-              </button>
-            </li>
-          <% end %>
           <li>
-            <div class="px-3 py-2">
-              <div class="grid grid-cols-5 gap-1">
-                <% allowed_emojis = ["👍", "❤️", "😂", "🎉", "🤔", "👎", "🔥", "👏", "💯", "😢"] %>
-                <%= for emoji <- allowed_emojis do %>
-                  <button
-                    phx-click="toggle_reaction"
-                    phx-value-message_id={@message.id}
-                    phx-value-emoji={emoji}
-                    class="btn btn-ghost btn-xs text-lg hover:bg-base-200 w-8 h-8 p-0"
-                    title={"React with #{emoji}"}
-                  >
-                    {emoji}
-                  </button>
-                <% end %>
-              </div>
-            </div>
+            <button
+              phx-click="delete_message"
+              phx-value-message_id={@message.id}
+              class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-200 rounded text-error"
+            >
+              <.icon name="hero-trash" class="h-4 w-4" /> Delete
+            </button>
           </li>
+        <% end %>
+        <li>
+          <div class="px-3 py-2">
+            <div class="grid grid-cols-5 gap-1">
+              <% allowed_emojis = ["👍", "❤️", "😂", "🎉", "🤔", "👎", "🔥", "👏", "💯", "😢"] %>
+              <%= for emoji <- allowed_emojis do %>
+                <button
+                  phx-click="toggle_reaction"
+                  phx-value-message_id={@message.id}
+                  phx-value-emoji={emoji}
+                  class="btn btn-ghost btn-xs text-lg hover:bg-base-200 w-8 h-8 p-0"
+                  title={"React with #{emoji}"}
+                >
+                  {emoji}
+                </button>
+              <% end %>
+            </div>
+          </div>
+        </li>
       </ul>
     </div>
     """

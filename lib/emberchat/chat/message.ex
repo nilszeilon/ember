@@ -155,6 +155,20 @@ defmodule Emberchat.Chat.Message do
   def display_content(%__MODULE__{deleted_at: _}), do: "Message deleted"
 
   @doc """
+  Get formatted display content for a message with preserved line breaks.
+  """
+  def formatted_display_content(%__MODULE__{deleted_at: nil, content: content}) do
+    content
+    |> String.replace("\r\n", "\n") # Normalize Windows line endings  
+    |> String.replace("\r", "\n")   # Normalize Mac line endings
+    |> Phoenix.HTML.html_escape()
+    |> Phoenix.HTML.safe_to_string()
+    |> String.replace("\n", "<br>")
+    |> Phoenix.HTML.raw()
+  end
+  def formatted_display_content(%__MODULE__{deleted_at: _}), do: Phoenix.HTML.raw("Message deleted")
+
+  @doc """
   Check if a deleted message should be shown (only if it has replies).
   """
   def should_show_when_deleted?(%__MODULE__{deleted_at: nil}), do: true
