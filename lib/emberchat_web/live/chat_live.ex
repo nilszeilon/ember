@@ -249,6 +249,14 @@ defmodule EmberchatWeb.ChatLive do
     do: NavigationHelpers.handle_event("keyboard_shortcut", params, socket)
 
   @impl true
+  def handle_event("show_keyboard_shortcuts_modal", params, socket),
+    do: NavigationHelpers.handle_event("show_keyboard_shortcuts_modal", params, socket)
+
+  @impl true
+  def handle_event("close_keyboard_shortcuts_modal", params, socket),
+    do: NavigationHelpers.handle_event("close_keyboard_shortcuts_modal", params, socket)
+
+  @impl true
   def handle_event("highlight_message", %{"message_id" => message_id}, socket) do
     {:noreply, assign(socket, :highlight_message_id, to_string(message_id))}
   end
@@ -638,6 +646,9 @@ defmodule EmberchatWeb.ChatLive do
           </div>
         </div>
       <% end %>
+      
+      <!-- Keyboard Shortcuts Modal -->
+      <.keyboard_shortcuts_modal show_keyboard_shortcuts={@show_keyboard_shortcuts} />
       
     </div>
     """

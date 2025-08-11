@@ -980,7 +980,7 @@ defmodule EmberchatWeb.ChatComponents do
         "modal",
         @show_keyboard_shortcuts && "modal-open"
       ]}
-      phx-click-away="hide_keyboard_shortcuts"
+      phx-click-away="close_keyboard_shortcuts_modal"
     >
       <div class="modal-box max-w-2xl">
         <h3 class="font-bold text-lg mb-4">Keyboard Shortcuts</h3>
@@ -1059,7 +1059,7 @@ defmodule EmberchatWeb.ChatComponents do
           <button
             type="button"
             class="btn btn-sm"
-            phx-click="hide_keyboard_shortcuts"
+            phx-click="close_keyboard_shortcuts_modal"
           >
             Close
           </button>

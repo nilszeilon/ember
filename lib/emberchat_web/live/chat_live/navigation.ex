@@ -38,7 +38,7 @@ defmodule EmberchatWeb.ChatLive.Navigation do
 
   def handle_event("keyboard_shortcut", %{"key" => "?"}, socket) do
     # Show keyboard shortcuts help
-    {:noreply, assign(socket, :show_keyboard_shortcuts, true)}
+    handle_event("show_keyboard_shortcuts_modal", %{}, socket)
   end
 
   def handle_event("keyboard_shortcut", %{"key" => "j"}, socket) do
@@ -179,7 +179,11 @@ defmodule EmberchatWeb.ChatLive.Navigation do
     {:noreply, socket}
   end
 
-  def handle_event("hide_keyboard_shortcuts", _params, socket) do
+  def handle_event("show_keyboard_shortcuts_modal", _params, socket) do
+    {:noreply, assign(socket, :show_keyboard_shortcuts, true)}
+  end
+
+  def handle_event("close_keyboard_shortcuts_modal", _params, socket) do
     {:noreply, assign(socket, :show_keyboard_shortcuts, false)}
   end
 
