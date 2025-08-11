@@ -11,7 +11,7 @@ image: nilszeilon/emberchat
 servers:
   web:
     # Replace with your VPS IP address or hostname
-    - 138.199.221.249
+    - emberchat.org
 
 # Docker registry configuration
 # You can use Docker Hub, GitHub Container Registry, or any other registry
