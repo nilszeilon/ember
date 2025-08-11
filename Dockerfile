@@ -88,6 +88,9 @@ RUN chown nobody /app
 # Create cache directory for Bumblebee models
 RUN mkdir -p /app/cache && chown nobody:nogroup /app/cache
 
+# Create data directory for SQLite database
+RUN mkdir -p /app/data && chown nobody:nogroup /app/data
+
 # set runner ENV
 ENV MIX_ENV="prod"
 ENV BUMBLEBEE_CACHE_DIR="/app/cache/bumblebee"
