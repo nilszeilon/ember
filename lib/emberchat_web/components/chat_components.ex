@@ -437,6 +437,13 @@ defmodule EmberchatWeb.ChatComponents do
       <div class="hidden md:block p-2">
         <%= if @drawer_open do %>
           <div class="bg-base-100 rounded-lg p-2 flex gap-2">
+            <button
+              phx-click="show_keyboard_shortcuts_modal"
+              class="flex-1 p-2 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center justify-center tooltip tooltip-top"
+              data-tip="Keyboard shortcuts"
+            >
+              <.icon name="hero-question-mark-circle" class="h-5 w-5" />
+            </button>
             <.link
               navigate={~p"/users/settings"}
               class="flex-1 p-2 rounded-lg hover:bg-base-200 transition-colors duration-200 flex items-center justify-center tooltip tooltip-top"
@@ -455,6 +462,13 @@ defmodule EmberchatWeb.ChatComponents do
           </div>
         <% else %>
           <div class="space-y-2 flex flex-col items-center">
+            <button
+              phx-click="show_keyboard_shortcuts_modal"
+              class="w-10 h-10 rounded-full hover:bg-base-300 transition-colors duration-200 flex items-center justify-center tooltip tooltip-right"
+              data-tip="Keyboard shortcuts"
+            >
+              <.icon name="hero-question-mark-circle" class="h-4 w-4" />
+            </button>
             <.link
               navigate={~p"/users/settings"}
               class="w-10 h-10 rounded-full hover:bg-base-300 transition-colors duration-200 flex items-center justify-center tooltip tooltip-right"
