@@ -24,6 +24,15 @@ defmodule Emberchat.Accounts.User do
   end
 
   @doc """
+  A user changeset for anonymous users without email.
+  """
+  def anonymous_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:username])
+    |> validate_username([])
+  end
+
+  @doc """
   A user changeset for registering or changing the email.
 
   It requires the email to change otherwise an error is added.
@@ -81,21 +90,28 @@ defmodule Emberchat.Accounts.User do
   end
 
   defp validate_email(changeset, opts) do
-    changeset =
+    email = get_change(changeset, :email) || get_field(changeset, :email)
+    
+    # Skip email validation if email is nil (for anonymous users)
+    if is_nil(email) do
       changeset
-      |> validate_required([:email])
-      |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
-        message: "must have the @ sign and no spaces"
-      )
-      |> validate_length(:email, max: 160)
-
-    if Keyword.get(opts, :validate_unique, true) do
-      changeset
-      |> unsafe_validate_unique(:email, Emberchat.Repo)
-      |> unique_constraint(:email)
-      |> validate_email_changed()
     else
-      changeset
+      changeset =
+        changeset
+        |> validate_required([:email])
+        |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
+          message: "must have the @ sign and no spaces"
+        )
+        |> validate_length(:email, max: 160)
+
+      if Keyword.get(opts, :validate_unique, true) do
+        changeset
+        |> unsafe_validate_unique(:email, Emberchat.Repo)
+        |> unique_constraint(:email)
+        |> validate_email_changed()
+      else
+        changeset
+      end
     end
   end
 

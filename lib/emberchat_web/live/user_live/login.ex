@@ -24,69 +24,78 @@ defmodule EmberchatWeb.UserLive.Login do
           </.header>
         </div>
 
-        <div :if={local_mail_adapter?()} class="alert alert-info">
-          <.icon name="hero-information-circle" class="size-6 shrink-0" />
-          <div>
-            <p>You are running the local mail adapter.</p>
-            <p>
-              To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
-            </p>
-          </div>
+        <div :if={@demo_mode} class="mt-6">
+          <.form for={%{}} action={~p"/users/log-in/anonymous"} method="post">
+            <.button class="btn btn-primary w-full" data-anonymous-login>
+              Try without an account <span aria-hidden="true">→</span>
+            </.button>
+          </.form>
+          <div class="divider">or sign in with email</div>
         </div>
-
-        <.form
-          :let={f}
-          for={@form}
-          id="login_form_magic"
-          action={~p"/users/log-in"}
-          phx-submit="submit_magic"
-        >
-          <.input
-            readonly={!!@current_scope}
-            field={f[:email]}
-            type="email"
-            label="Email"
-            autocomplete="username"
-            required
-            phx-mounted={JS.focus()}
-          />
-          <.button class="btn btn-primary w-full">
-            Log in with email <span aria-hidden="true">→</span>
-          </.button>
-        </.form>
-
-        <div class="divider">or</div>
-
-        <.form
-          :let={f}
-          for={@form}
-          id="login_form_password"
-          action={~p"/users/log-in"}
-          phx-submit="submit_password"
-          phx-trigger-action={@trigger_submit}
-        >
-          <.input
-            readonly={!!@current_scope}
-            field={f[:email]}
-            type="email"
-            label="Email"
-            autocomplete="username"
-            required
-          />
-          <.input
-            field={@form[:password]}
-            type="password"
-            label="Password"
-            autocomplete="current-password"
-          />
-          <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
-            Log in and stay logged in <span aria-hidden="true">→</span>
-          </.button>
-          <.button class="btn btn-primary btn-soft w-full mt-2">
-            Log in only this time
-          </.button>
-        </.form>
       </div>
+
+      <div :if={local_mail_adapter?()} class="alert alert-info">
+        <.icon name="hero-information-circle" class="size-6 shrink-0" />
+        <div>
+          <p>You are running the local mail adapter.</p>
+          <p>
+            To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
+          </p>
+        </div>
+      </div>
+
+      <.form
+        :let={f}
+        for={@form}
+        id="login_form_magic"
+        action={~p"/users/log-in"}
+        phx-submit="submit_magic"
+      >
+        <.input
+          readonly={!!@current_scope}
+          field={f[:email]}
+          type="email"
+          label="Email"
+          autocomplete="username"
+          required
+          phx-mounted={JS.focus()}
+        />
+        <.button class="btn btn-primary w-full">
+          Log in with email <span aria-hidden="true">→</span>
+        </.button>
+      </.form>
+
+      <div class="divider">or</div>
+
+      <.form
+        :let={f}
+        for={@form}
+        id="login_form_password"
+        action={~p"/users/log-in"}
+        phx-submit="submit_password"
+        phx-trigger-action={@trigger_submit}
+      >
+        <.input
+          readonly={!!@current_scope}
+          field={f[:email]}
+          type="email"
+          label="Email"
+          autocomplete="username"
+          required
+        />
+        <.input
+          field={@form[:password]}
+          type="password"
+          label="Password"
+          autocomplete="current-password"
+        />
+        <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
+          Log in and stay logged in <span aria-hidden="true">→</span>
+        </.button>
+        <.button class="btn btn-primary btn-soft w-full mt-2">
+          Log in only this time
+        </.button>
+      </.form>
     </Layouts.app>
     """
   end
@@ -97,8 +106,9 @@ defmodule EmberchatWeb.UserLive.Login do
         get_in(socket.assigns, [:current_scope, Access.key(:user), Access.key(:email)])
 
     form = to_form(%{"email" => email}, as: "user")
+    demo_mode = Application.get_env(:emberchat, :demo_mode, false)
 
-    {:ok, assign(socket, form: form, trigger_submit: false)}
+    {:ok, assign(socket, form: form, trigger_submit: false, demo_mode: demo_mode)}
   end
 
   def handle_event("submit_password", _params, socket) do

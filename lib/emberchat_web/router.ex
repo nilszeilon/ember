@@ -77,6 +77,7 @@ defmodule EmberchatWeb.Router do
     end
 
     post "/users/log-in", UserSessionController, :create
+    post "/users/log-in/anonymous", UserSessionController, :create_anonymous
     delete "/users/log-out", UserSessionController, :delete
   end
 end

@@ -2,6 +2,7 @@ defmodule EmberchatWeb.ChatLive do
   use EmberchatWeb, :live_view
   import EmberchatWeb.ChatComponents
 
+  alias Emberchat.Accounts
   alias Emberchat.Chat
   alias Emberchat.Chat.Message
   alias Emberchat.Chat.Room
@@ -599,6 +600,24 @@ defmodule EmberchatWeb.ChatLive do
           
           <!-- Footer -->
           <div class="p-4 mt-auto">
+            <%= if Emberchat.Accounts.anonymous_user?(@current_scope.user) do %>
+              <div class="bg-warning/10 border border-warning/20 rounded-lg p-3 mb-3">
+                <div class="flex items-center gap-2 text-warning">
+                  <.icon name="hero-information-circle" class="h-5 w-5" />
+                  <span class="font-medium">Demo Account</span>
+                </div>
+                <p class="text-sm text-base-content/70 mt-1">
+                  You're using a temporary account.
+                </p>
+                <.link
+                  navigate={~p"/users/register"}
+                  class="btn btn-sm btn-warning mt-2 w-full"
+                >
+                  Complete Registration
+                </.link>
+              </div>
+            <% end %>
+            
             <div class="bg-base-100 rounded-lg p-2 flex gap-2">
               <.link
                 navigate={~p"/users/settings"}

@@ -64,4 +64,24 @@ defmodule EmberchatWeb.UserSessionController do
     |> put_flash(:info, "Logged out successfully.")
     |> UserAuth.log_out_user()
   end
+
+  def create_anonymous(conn, _params) do
+    if Application.get_env(:emberchat, :demo_mode, false) do
+      case Accounts.create_anonymous_user() do
+        {:ok, user} ->
+          conn
+          |> put_flash(:info, "Welcome! You're using a demo account.")
+          |> UserAuth.log_in_user(user)
+
+        {:error, _changeset} ->
+          conn
+          |> put_flash(:error, "Failed to create anonymous user")
+          |> redirect(to: ~p"/users/log-in")
+      end
+    else
+      conn
+      |> put_flash(:error, "Demo mode is not enabled")
+      |> redirect(to: ~p"/users/log-in")
+    end
+  end
 end

@@ -81,6 +81,36 @@ defmodule Emberchat.Accounts do
   end
 
   @doc """
+  Creates an anonymous user for demo mode.
+  """
+  def create_anonymous_user do
+    random_string = :crypto.strong_rand_bytes(8) |> Base.encode16() |> String.downcase()
+    username = "user#{random_string}"
+    
+    %User{
+      confirmed_at: DateTime.utc_now(:second)
+    }
+    |> User.anonymous_changeset(%{username: username})
+    |> Repo.insert()
+  end
+
+  @doc """
+  Converts an anonymous user to a full user with email.
+  """
+  def convert_anonymous_to_full_user(user, attrs) do
+    user
+    |> User.email_changeset(attrs)
+    |> User.confirm_changeset()
+    |> Repo.update()
+  end
+
+  @doc """
+  Checks if a user is anonymous (no email).
+  """
+  def anonymous_user?(%User{email: nil}), do: true
+  def anonymous_user?(_), do: false
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for changing user registration.
   """
   def change_user_registration(user, attrs \\ %{}, opts \\ []) do

@@ -35,6 +35,7 @@ env:
     PORT: 4000
     MIX_ENV: prod
     POOL_SIZE: 5
+    DEMO: true
   secret:
     # Generate with: mix phx.gen.secret
     - SECRET_KEY_BASE

@@ -126,3 +126,6 @@ if config_env() == :prod do
   config :emberchat, :app_name, System.get_env("APP_NAME") || "Emberchat"
   config :emberchat, :app_domain, System.get_env("APP_DOMAIN") || host
 end
+
+# Demo mode configuration
+config :emberchat, :demo_mode, System.get_env("DEMO") == "true"
